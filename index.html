@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ココフォリア キャラクターシート変換ツール (CoC6版)</title>
+  <meta name="description"
+    content="クトゥルフ神話TRPG(6版)のキャラクターシートURLから、ココフォリア用駒JSONデータを生成する無料のオンラインツール。いあきゃら、キャラクター保管所、キャラエノ対応。">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <span class="app-header__badge">クトゥルフ神話TRPG 6版専用</span>
+      <h1 class="app-header__title">ココフォリア キャラクター変換</h1>
+      <p class="app-header__subtitle">キャラクターシートのURLをココフォリアで使える駒データ(JSON)に変換します。</p>
+    </header>
+
+    <main>
+      <!-- STEP 1: データ入力 -->
+      <section class="step-card" id="step-1">
+        <div class="step-card__header">
+          <span class="step-card__number">1</span>
+          <h2 class="step-card__title">データ入力</h2>
+        </div>
+        <div class="step-card__content">
+          <div class="url-input-group">
+            <textarea id="url-input" class="url-input"
+              placeholder="キャラクターシートのURL、またはココフォリア駒データ(JSON)を貼り付けてください&#10;例: https://charasheet.vampire-blood.net/...&#10;例: { &quot;kind&quot;: &quot;character&quot;, ... }"
+              rows="4" required autocomplete="off"></textarea>
+            <button type="button" id="btn-convert" class="btn btn--primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+              </svg>
+              <span class="btn-text">変換する</span>
+            </button>
+          </div>
+          <div class="url-hint">
+            対応入力: <strong>キャラクター保管所URL</strong> / <strong>キャラエノURL</strong> / <strong>ココフォリア駒JSON（いあきゃら等）</strong>
+          </div>
+
+          <!-- エラー表示エリア -->
+          <div id="error-banner" class="error-banner">
+            <svg class="error-banner__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span id="error-text">エラーが発生しました。</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2: プレビュー & コピー -->
+      <section class="step-card preview-section" id="preview-section">
+        <div class="step-card__header">
+          <span class="step-card__number">2</span>
+          <h2 class="step-card__title">プレビュー &amp; コピー</h2>
+          <button type="button" id="btn-copy" class="btn btn--primary" style="margin-left: auto;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+            </svg>
+            <span>クリップボードにコピー</span>
+          </button>
+        </div>
+        <div class="step-card__content">
+          <!-- 警告表示エリア (isPartial=trueのとき表示) -->
+          <div id="warning-banner" class="warning-banner">
+            <div class="warning-banner__title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <span>一部のデータを取得できませんでした。出力内容を確認してください。</span>
+            </div>
+            <ul id="warning-list" class="warning-banner__list"></ul>
+          </div>
+
+          <!-- ココフォリア風プレビューコンテナ -->
+          <div class="ccfolia-preview">
+            <div class="ccfolia-preview__header">
+              <span>キャラクター編集</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer;">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </div>
+            <div class="ccfolia-preview__body">
+
+              <div class="preview-columns">
+                <!-- ===== 左カラム: 駒データ編集 ===== -->
+                <div class="preview-col preview-col--left">
+                  <!-- 基本情報 -->
+                  <div class="ccfolia-row">
+                    <div class="ccfolia-icon-placeholder">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                    <div class="ccfolia-input-group flex-1">
+                      <label>名前</label>
+                      <input type="text" id="preview-name" class="editable-field" value="-">
+                    </div>
+                    <div class="ccfolia-input-group">
+                      <label>イニシアティブ</label>
+                      <input type="number" id="preview-initiative" class="editable-field" value="0">
+                    </div>
+                  </div>
+
+                  <!-- メモ -->
+                  <div class="ccfolia-input-group mt-3">
+                    <label>キャラクターメモ</label>
+                    <textarea id="preview-memo" class="editable-field" rows="4" style="resize: vertical;">-</textarea>
+                  </div>
+
+                  <!-- コマサイズ等 -->
+                  <div class="ccfolia-row mt-3">
+                    <div class="ccfolia-input-group flex-1">
+                      <label>駒サイズ</label>
+                      <input type="number" id="preview-size" class="editable-field" value="4" min="1" max="100"
+                        step="1">
+                    </div>
+                    <div class="ccfolia-input-group flex-1">
+                      <label>x</label>
+                      <input type="text" id="preview-x" class="readonly-field" value="-48" readonly tabindex="-1">
+                    </div>
+                    <div class="ccfolia-input-group flex-1">
+                      <label>y</label>
+                      <input type="text" id="preview-y" class="readonly-field" value="-48" readonly tabindex="-1">
+                    </div>
+                  </div>
+
+                  <!-- 参照URL -->
+                  <div class="ccfolia-input-group mt-3 pb-3 border-bottom">
+                    <label>参照URL</label>
+                    <input type="text" id="preview-url" class="editable-field" value="">
+                  </div>
+
+                  <!-- 立ち絵・差分 -->
+                  <div class="ccfolia-section-header mt-3">
+                    <span>立ち絵・差分</span>
+                    <div class="ccfolia-section-actions">
+                      <button type="button" id="btn-add-face" class="ccfolia-btn-icon" title="差分を追加">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="pb-3 border-bottom">
+                    <div class="ccfolia-faces-grid" id="preview-faces-grid">
+                      <!-- JSで動的生成 -->
+                    </div>
+                  </div>
+
+                  <!-- ステータス -->
+                  <div class="ccfolia-section-header mt-3">
+                    <span>ステータス</span>
+                    <div class="ccfolia-section-actions">
+                      <button type="button" id="btn-add-status" class="ccfolia-btn-icon" title="ステータスを追加">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div id="preview-status-fixed">
+                    <div class="ccfolia-status-row">
+                      <div class="ccfolia-status-row-item">
+                        <label>HP</label>
+                      </div>
+                      <div class="ccfolia-status-row-item">
+                        <input type="number" id="preview-hp-val" class="editable-field" value="0">
+                      </div>
+                      <div class="ccfolia-status-row-item">
+                        <input type="number" id="preview-hp-max" class="editable-field" value="0">
+                      </div>
+                    </div>
+                    <div class="ccfolia-status-row">
+                      <div class="ccfolia-status-row-item">
+                        <label>MP</label>
+                      </div>
+                      <div class="ccfolia-status-row-item">
+                        <input type="number" id="preview-mp-val" class="editable-field" value="0">
+                      </div>
+                      <div class="ccfolia-status-row-item">
+                        <input type="number" id="preview-mp-max" class="editable-field" value="0">
+                      </div>
+                    </div>
+                    <div class="ccfolia-status-row">
+                      <div class="ccfolia-status-row-item">
+                        <label>SAN</label>
+                      </div>
+                      <div class="ccfolia-status-row-item">
+                        <input type="number" id="preview-san-val" class="editable-field" value="0">
+                      </div>
+                      <div class="ccfolia-status-row-item">
+                        <input type="number" id="preview-san-max" class="editable-field" value="0">
+                      </div>
+                    </div>
+                  </div>
+                  <div id="preview-status-custom" class="pb-3 border-bottom">
+                    <!-- JSで動的生成 -->
+                  </div>
+
+                  <!-- パラメータ -->
+                  <div class="ccfolia-section-header mt-3">
+                    <span>パラメータ</span>
+                    <div class="ccfolia-section-actions">
+                      <button type="button" id="btn-add-param" class="ccfolia-btn-icon" title="パラメータを追加">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="ccfolia-params-grid" id="preview-params-fixed">
+                    <div class="ccfolia-param-item">
+                      <label>STR</label><input type="number" id="preview-param-STR" class="editable-field" value="0">
+                    </div>
+                    <div class="ccfolia-param-item">
+                      <label>CON</label><input type="number" id="preview-param-CON" class="editable-field" value="0">
+                    </div>
+                    <div class="ccfolia-param-item">
+                      <label>POW</label><input type="number" id="preview-param-POW" class="editable-field" value="0">
+                    </div>
+                    <div class="ccfolia-param-item">
+                      <label>DEX</label><input type="number" id="preview-param-DEX" class="editable-field" value="0">
+                    </div>
+                    <div class="ccfolia-param-item">
+                      <label>APP</label><input type="number" id="preview-param-APP" class="editable-field" value="0">
+                    </div>
+                    <div class="ccfolia-param-item">
+                      <label>SIZ</label><input type="number" id="preview-param-SIZ" class="editable-field" value="0">
+                    </div>
+                    <div class="ccfolia-param-item">
+                      <label>INT</label><input type="number" id="preview-param-INT" class="editable-field" value="0">
+                    </div>
+                    <div class="ccfolia-param-item">
+                      <label>EDU</label><input type="number" id="preview-param-EDU" class="editable-field" value="0">
+                    </div>
+                    <div class="ccfolia-param-item">
+                      <label>DB</label><input type="text" id="preview-param-DB" class="editable-field" value="+0">
+                    </div>
+                  </div>
+                  <div class="ccfolia-params-grid pb-3 border-bottom" id="preview-params-custom" style="margin-top: 0;">
+                    <!-- JSで動的生成 -->
+                  </div>
+
+                  <!-- トグル設定 -->
+                  <div class="ccfolia-toggle-row mt-3">
+                    <div class="ccfolia-toggle-info">
+                      <span class="ccfolia-toggle-title">ステータスを非公開にする</span>
+                      <span class="ccfolia-toggle-desc">秘匿NPC・敵キャラクターなど</span>
+                    </div>
+                    <label class="ccfolia-switch">
+                      <input type="checkbox" id="preview-secret" checked>
+                      <span class="ccfolia-slider"></span>
+                    </label>
+                  </div>
+                  <div class="ccfolia-toggle-row">
+                    <div class="ccfolia-toggle-info">
+                      <span class="ccfolia-toggle-title">発言時キャラクターを表示しない</span>
+                      <span class="ccfolia-toggle-desc">駒自体を立ち絵のように見せる場合</span>
+                    </div>
+                    <label class="ccfolia-switch">
+                      <input type="checkbox" id="preview-invisible" checked>
+                      <span class="ccfolia-slider"></span>
+                    </label>
+                  </div>
+                  <div class="ccfolia-toggle-row">
+                    <div class="ccfolia-toggle-info">
+                      <span class="ccfolia-toggle-title">盤面キャラクター一覧に表示しない</span>
+                      <span class="ccfolia-toggle-desc">GM駒などステータス管理が必要ないもの</span>
+                    </div>
+                    <label class="ccfolia-switch">
+                      <input type="checkbox" id="preview-hide-status">
+                      <span class="ccfolia-slider"></span>
+                    </label>
+                  </div>
+
+                </div><!-- /.preview-col--left -->
+
+                <!-- ===== 右カラム: オプション設定 + チャットパレット ===== -->
+                <div class="preview-col preview-col--right">
+                  <!-- チャットパレット設定 -->
+                  <div class="options-integrated" id="options-section">
+                    <div class="options-grid">
+                      <!-- チャットコマンド設定 -->
+                      <div class="option-group">
+                        <h3 class="option-group__title">チャットコマンド</h3>
+                        <label class="option-item">
+                          <input type="radio" name="diceCommand" value="CCB" checked>
+                          <span>CCB&lt;=</span>
+                        </label>
+                        <label class="option-item">
+                          <input type="radio" name="diceCommand" value="CC">
+                          <span>CC&lt;=</span>
+                        </label>
+                        <label class="option-item">
+                          <input type="radio" name="diceCommand" value="1d100">
+                          <span>1d100&lt;=</span>
+                        </label>
+                      </div>
+
+                      <!-- 追加表示オプション -->
+                      <div class="option-group">
+                        <h3 class="option-group__title">追加表示</h3>
+                        <label class="option-item">
+                          <input type="checkbox" id="opt-show-initial-skills" checked>
+                          <span>初期値技能を追加</span>
+                        </label>
+                        <label class="option-item">
+                          <input type="checkbox" id="opt-show-dodge" checked>
+                          <span>【回避】を取得技能欄に追加</span>
+                        </label>
+                        <label class="option-item">
+                          <input type="checkbox" id="opt-show-perception-skills" checked>
+                          <span>【目星】【聞き耳】【図書館】を取得技能欄に追加</span>
+                        </label>
+                        <label class="option-item">
+                          <input type="checkbox" id="opt-show-combat-damage" checked>
+                          <span>【パンチ】【キック】【頭突き】のダメージコマンドを追加</span>
+                        </label>
+                      </div>
+
+                      <!-- 特殊ロール表示オプション -->
+                      <div class="option-group">
+                        <h3 class="option-group__title">特殊ロール</h3>
+                        <label class="option-item">
+                          <input type="checkbox" class="opt-special-roll" data-roll="san_check" checked>
+                          <span>【SAN値チェック】</span>
+                        </label>
+                        <label class="option-item">
+                          <input type="checkbox" class="opt-special-roll" data-roll="indefinite_reset" checked>
+                          <span>不定リセット</span>
+                        </label>
+                        <label class="option-item">
+                          <input type="checkbox" class="opt-special-roll" data-roll="idea" checked>
+                          <span>【アイデア】</span>
+                        </label>
+                        <label class="option-item">
+                          <input type="checkbox" class="opt-special-roll" data-roll="luck" checked>
+                          <span>【幸運】</span>
+                        </label>
+                        <label class="option-item">
+                          <input type="checkbox" class="opt-special-roll" data-roll="knowledge" checked>
+                          <span>【知識】</span>
+                        </label>
+                      </div>
+
+                      <!-- 能力値×5表示オプション -->
+                      <div class="option-group">
+                        <h3 class="option-group__title">能力値×5</h3>
+                        <label class="option-item" style="margin-bottom: 8px; font-weight: 600;">
+                          <input type="checkbox" id="opt-show-stat-times5-all">
+                          <span>すべての能力値×5を追加</span>
+                        </label>
+                        <div class="stat-times5-grid">
+                          <label class="option-item">
+                            <input type="checkbox" class="opt-stat-times5" data-stat="STR" checked>
+                            <span>STR</span>
+                          </label>
+                          <label class="option-item">
+                            <input type="checkbox" class="opt-stat-times5" data-stat="CON" checked>
+                            <span>CON</span>
+                          </label>
+                          <label class="option-item">
+                            <input type="checkbox" class="opt-stat-times5" data-stat="POW" checked>
+                            <span>POW</span>
+                          </label>
+                          <label class="option-item">
+                            <input type="checkbox" class="opt-stat-times5" data-stat="DEX" checked>
+                            <span>DEX</span>
+                          </label>
+                          <label class="option-item">
+                            <input type="checkbox" class="opt-stat-times5" data-stat="APP" checked>
+                            <span>APP</span>
+                          </label>
+                          <label class="option-item">
+                            <input type="checkbox" class="opt-stat-times5" data-stat="SIZ" checked>
+                            <span>SIZ</span>
+                          </label>
+                          <label class="option-item">
+                            <input type="checkbox" class="opt-stat-times5" data-stat="INT" checked>
+                            <span>INT</span>
+                          </label>
+                          <label class="option-item">
+                            <input type="checkbox" class="opt-stat-times5" data-stat="EDU" checked>
+                            <span>EDU</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <!-- チャットカラー -->
+                      <div class="option-group">
+                        <h3 class="option-group__title">チャットカラー</h3>
+                        <div class="option-inline" style="margin-top: 0; padding-top: 0; border-top: none;">
+                          <label class="option-item" style="margin: 0;">
+                            <input type="checkbox" id="opt-use-default-color" checked>
+                            <span>カスタム色を使用</span>
+                          </label>
+                          <input type="color" id="opt-chat-color" class="input-color" value="#a4c2f4" disabled>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- チャットパレット構成 (ビルダーUI) -->
+                  <div class="ccfolia-section-header mt-3">
+                    <span>チャットパレット</span>
+                    <button type="button" id="btn-add-custom-block" class="ccfolia-btn-small" title="カスタムブロックを追加">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      追加
+                    </button>
+                  </div>
+                  <div class="ccfolia-input-group mt-1">
+                    <div id="chatpalette-builder" class="chatpalette-builder">
+                      <!-- JSで動的にブロックをレンダリング -->
+                    </div>
+                    <!-- 内部保存用の隠しtextarea -->
+                    <textarea id="preview-chatpalette" style="display:none;"></textarea>
+                  </div>
+
+                </div><!-- /.preview-col--right -->
+              </div><!-- /.preview-columns -->
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p class="app-footer__text">
+        本ツールは以下の著作物の二次創作ツールです。<br>
+        本ツールは「株式会社アークライト」および「株式会社KADOKAWA」が権利を有する『クトゥルフ神話TRPG』の二次創作物です。<br>
+        Call of Cthulhu is copyright ©1981, 2015, 2019 by Chaosium Inc.; all rights reserved. Arranged by Arclight
+        Inc.<br>
+        Call of Cthulhu is a registered trademark of Chaosium Inc. PUBLISHED BY KADOKAWA CORPORATION<br>
+        ©サンディ・ピーターセン／リン・ウィリス／中山てい子／坂本雅之／株式会社KADOKAWA
+      </p>
+    </footer>
+  </div>
+
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner">
+      <div class="loading-spinner__dots">
+        <div class="loading-spinner__dot"></div>
+        <div class="loading-spinner__dot"></div>
+        <div class="loading-spinner__dot"></div>
+      </div>
+      <span class="loading-spinner__text">データを取得中...</span>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
