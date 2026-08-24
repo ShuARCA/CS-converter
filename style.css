@@ -1,0 +1,1403 @@
+@charset "UTF-8";
+
+/**
+ * ============================================================================
+ * style.css - グローバルスタイル
+ *
+ * 【設計方針】
+ * 1. CSS Variables による一元管理（テーマ、カラー、タイポグラフィ、余白など）
+ * 2. BEM の考え方を取り入れたコンポーネント指向設計
+ * 3. 変数の数を最小限に保ち、保守性・拡張性を向上
+ * ============================================================================
+ */
+
+/* ─── Google Fonts ─── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
+
+/**
+ * ----------------------------------------------------------------------------
+ * 1. デザイン・トークン (CSS Variables)
+ * ----------------------------------------------------------------------------
+ */
+:root {
+  /* ── カラー: 背景 ── */
+  --color-bg-primary: #181818;
+  --color-bg-input: rgba(45, 45, 45, 0.9);
+  --color-bg-overlay: rgba(0, 0, 0, 0.6);
+
+  /* ── カラー: アクセント ── */
+  --color-accent-primary: #f50057;
+  --color-accent-secondary: #f76d55;
+  --color-accent-gradient: linear-gradient(135deg, var(--color-accent-primary), var(--color-accent-secondary));
+  --color-accent-glow: rgba(255, 99, 99, 0.4);
+  --color-accent-alpha-light: rgba(255, 99, 99, 0.05);
+
+  /* ── カラー: テキスト ── */
+  --color-text-primary: #e2e8f0;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+
+  /* ── カラー: ステータス ── */
+  --color-warning: #f59e0b;
+  --color-warning-bg: rgba(245, 158, 11, 0.15);
+  --color-error: #ef4444;
+  --color-error-bg: rgba(239, 68, 68, 0.15);
+
+  /* ── カラー: ボーダー ── */
+  --color-border: rgba(108, 99, 255, 0.2);
+  --color-border-hover: rgba(108, 99, 255, 0.5);
+
+  /* ── ココフォリア用プレビューテーマ ── */
+  --cc-bg-base: #2b2b2b;
+  --cc-bg-header: #222222;
+  --cc-bg-input: #333333;
+  --cc-bg-icon: #1a1a1a;
+  --cc-bg-hover: #444444;
+  --cc-bg-active: #555555;
+  --cc-border-main: #444444;
+  --cc-border-sub: #1a1a1a;
+  --cc-border-input: #555555;
+
+  /* ── フォントファミリー ── */
+  --font-primary: 'Noto Sans JP', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* ── フォントサイズ ── */
+  --text-xs: 0.75rem;
+  /* 12px */
+  --text-sm: 0.875rem;
+  /* 14px */
+  --text-base: 1rem;
+  /* 16px */
+  --text-lg: 1.125rem;
+  /* 18px */
+  --text-2xl: 1.5rem;
+  /* 24px */
+  --text-3xl: 1.875rem;
+  /* 30px */
+
+  /* ── スペーシング ── */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  /* ── 角丸 ── */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-full: 9999px;
+
+  /* ── シャドウ ── */
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.4);
+
+  /* ── トランジション ── */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+
+  /* ── Z-Index ── */
+  --z-bg: 0;
+  --z-base: 1;
+  --z-overlay: 1000;
+  --z-toast: 2000;
+
+  /* ── レイアウト ── */
+  --max-width: 1400px;
+
+  /* ── グラスモーフィズム ── */
+  --glass-blur: 20px;
+  --glass-bg: rgba(30, 30, 30, 0.9);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 2. リセット・ベース
+ * ----------------------------------------------------------------------------
+ */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-primary);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 共通背景装飾 */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(108, 99, 255, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: var(--z-bg);
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 3. レイアウト
+ * ----------------------------------------------------------------------------
+ */
+.app-container {
+  position: relative;
+  z-index: var(--z-base);
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: var(--space-lg) var(--space-md);
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 4. ヘッダー
+ * ----------------------------------------------------------------------------
+ */
+.app-header {
+  text-align: center;
+  padding: var(--space-2xl) 0 var(--space-xl);
+}
+
+.app-header__title {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  background: var(--color-accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.02em;
+  margin-bottom: var(--space-sm);
+}
+
+.app-header__badge {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-accent-gradient);
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-sm);
+}
+
+.app-header__subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 5. ステップカード
+ * ----------------------------------------------------------------------------
+ */
+.step-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin-bottom: var(--space-lg);
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+  animation: fadeInUp 0.5s ease forwards;
+  opacity: 0;
+}
+
+.step-card:hover {
+  border-color: var(--color-border);
+}
+
+.step-card:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.step-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.step-card:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.step-card:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.step-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.step-card__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: var(--color-accent-gradient);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.step-card__title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 6. 入力フォーム
+ * ----------------------------------------------------------------------------
+ */
+.url-input-group {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.url-input {
+  flex: 1;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-primary);
+  font-size: var(--text-base);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  resize: vertical;
+  min-height: 100px;
+}
+
+.url-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.url-input:focus {
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.url-input:hover:not(:focus) {
+  border-color: var(--color-border-hover);
+}
+
+.url-hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-lg);
+}
+
+.url-hint strong {
+  color: var(--color-text-secondary);
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 7. ボタン
+ * ----------------------------------------------------------------------------
+ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-xl);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-primary);
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn--primary {
+  background: var(--color-accent-gradient);
+  color: var(--color-text-primary);
+  box-shadow: 0 4px 15px var(--color-accent-glow);
+}
+
+.btn--primary:hover:not(:disabled) {
+  box-shadow: 0 6px 25px var(--color-accent-glow);
+  transform: translateY(-1px);
+}
+
+.btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn--secondary {
+  background: transparent;
+  color: var(--color-accent-primary);
+  border: 1px solid var(--color-border);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-alpha-light);
+}
+
+.btn--success {
+  background: var(--color-accent-primary);
+  color: var(--color-text-primary);
+}
+
+.btn--success:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn--full {
+  width: 100%;
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 8. アラート・バナー
+ * ----------------------------------------------------------------------------
+ */
+.error-banner {
+  display: none;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: var(--text-sm);
+  margin-top: var(--space-md);
+  animation: shakeIn 0.4s ease;
+}
+
+.error-banner.visible {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.error-banner__icon {
+  font-size: var(--text-lg);
+  flex-shrink: 0;
+}
+
+.warning-banner {
+  display: none;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  color: var(--color-warning);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-md);
+}
+
+.warning-banner.visible {
+  display: block;
+}
+
+.warning-banner__title {
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.warning-banner__list {
+  list-style: disc inside;
+  padding-left: var(--space-sm);
+  font-size: var(--text-xs);
+  color: var(--color-warning);
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 9. プレビューセクション
+ * ----------------------------------------------------------------------------
+ */
+.preview-section {
+  display: block;
+}
+
+.preview-columns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.preview-col {
+  min-width: 0;
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 10. オプションセクション
+ * ----------------------------------------------------------------------------
+ */
+.options-integrated {
+  background: var(--cc-bg-header);
+  border: 1px solid var(--cc-border-main);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.options-integrated .options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+
+.options-integrated .option-group {
+  background: var(--cc-bg-base);
+  border: 1px solid var(--cc-border-sub);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.options-integrated .option-group__title {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-accent-primary);
+  margin-bottom: var(--space-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.options-integrated .option-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast);
+}
+
+.options-integrated .option-item:hover {
+  color: var(--color-text-primary);
+}
+
+.options-integrated .option-item input[type="radio"],
+.options-integrated .option-item input[type="checkbox"] {
+  accent-color: var(--color-accent-primary);
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+/* 能力値×5 グリッド */
+.stat-times5-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-xs) var(--space-sm);
+}
+
+/* インライン入力 */
+.option-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--cc-border-main);
+}
+
+.option-inline label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.input-color {
+  width: 3rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--cc-border-input);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 11. ココフォリア風UI
+ * ----------------------------------------------------------------------------
+ */
+.ccfolia-preview {
+  background-color: var(--cc-bg-base);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-family: var(--font-primary);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.ccfolia-preview__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: var(--cc-bg-header);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border-bottom: 1px solid var(--cc-border-sub);
+}
+
+.ccfolia-preview__body {
+  padding: var(--space-md);
+  font-size: 13px;
+}
+
+.ccfolia-row {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-end;
+}
+
+/* ユーティリティ（ココフォリアUI用） */
+.mt-1 {
+  margin-top: 4px;
+}
+
+.mt-3 {
+  margin-top: 16px;
+}
+
+.pb-3 {
+  padding-bottom: 16px;
+}
+
+.border-bottom {
+  border-bottom: 1px solid var(--cc-border-main);
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+/* アイコン */
+.ccfolia-icon-placeholder {
+  width: 48px;
+  height: 48px;
+  background-color: var(--cc-bg-icon);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* 入力グループ */
+.ccfolia-input-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.ccfolia-input-group label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.ccfolia-input-group input[type="text"],
+.ccfolia-input-group input[type="number"],
+.ccfolia-input-group textarea {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--cc-border-input);
+  color: var(--color-text-primary);
+  padding: 4px 0;
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.ccfolia-input-group input[type="text"]:focus,
+.ccfolia-input-group input[type="number"]:focus,
+.ccfolia-input-group textarea:focus {
+  border-bottom-color: var(--color-accent-primary);
+}
+
+/* 編集可能フィールド — 下線アニメーション */
+.editable-field,
+input.editable-field,
+textarea.editable-field {
+  background-color: transparent !important;
+  color: var(--color-text-primary) !important;
+  border: none !important;
+  background-image:
+    linear-gradient(var(--color-accent-primary), var(--color-accent-primary)),
+    linear-gradient(currentColor, currentColor) !important;
+  background-size:
+    0% 1px,
+    100% 1px !important;
+  background-position:
+    center bottom,
+    center bottom !important;
+  background-repeat: no-repeat !important;
+  transition: background-size 0.3s ease, background-color 0.3s ease !important;
+}
+
+.editable-field:focus,
+input.editable-field:focus,
+textarea.editable-field:focus {
+  background-color: transparent !important;
+  background-size:
+    100% 1px,
+    100% 1px !important;
+  outline: none !important;
+}
+
+/* フォーカス時、親グループのラベルをアクセントカラーに */
+.ccfolia-input-group:has(.editable-field:focus) label,
+.ccfolia-status-row:has(.editable-field:focus) label,
+.ccfolia-param-item:has(.editable-field:focus) label {
+  color: var(--color-accent-primary) !important;
+}
+
+.ccfolia-input-group label,
+.ccfolia-status-row label,
+.ccfolia-param-item label {
+  transition: color 0.3s ease;
+}
+
+/* 読み取り専用フィールド */
+.ccfolia-input-group input[type="text"]:read-only,
+.ccfolia-input-group input[type="number"]:read-only,
+.ccfolia-input-group textarea:read-only,
+.readonly-field {
+  cursor: default;
+  border-bottom: 1px solid var(--cc-border-sub) !important;
+  color: var(--color-text-secondary) !important;
+}
+
+/* テキストエリア */
+.ccfolia-input-group textarea {
+  border: 1px solid var(--cc-border-input);
+  border-radius: 2px;
+  padding: 8px;
+  background: var(--cc-bg-input);
+  resize: vertical;
+}
+
+.ccfolia-input-group textarea:read-only {
+  border: 1px solid var(--cc-border-sub) !important;
+  background: transparent;
+}
+
+/* セクションヘッダー */
+.ccfolia-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ccfolia-section-actions {
+  display: flex;
+  gap: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* ステータス行 */
+.ccfolia-status-row {
+  display: flex;
+  align-items: center;
+  margin-top: 12px;
+  gap: 16px;
+}
+
+.ccfolia-status-row-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.ccfolia-status-row-item:first-child {
+  flex: 1;
+}
+
+.ccfolia-status-row label {
+  display: block;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.ccfolia-status-row input[type="text"],
+.ccfolia-status-row input[type="number"] {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--cc-border-input);
+  color: var(--color-text-primary);
+  width: 100%;
+  padding: 4px 0;
+  text-align: left;
+  outline: none;
+}
+
+.ccfolia-status-row input.readonly-field {
+  border-bottom: 1px solid var(--cc-border-sub) !important;
+  color: var(--color-text-secondary) !important;
+  cursor: default;
+}
+
+/* パラメータ行 */
+.ccfolia-params-grid {
+  display: block;
+  margin-top: 12px;
+}
+
+.ccfolia-param-item {
+  display: flex;
+  align-items: center;
+  margin: 12px 0px;
+  gap: 16px;
+}
+
+.ccfolia-param-item label {
+  flex: 1;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.ccfolia-param-item input[type="text"],
+.ccfolia-param-item input[type="number"] {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--cc-border-input);
+  color: var(--color-text-primary);
+  flex: 1;
+  padding: 4px 0;
+  text-align: left;
+  outline: none;
+}
+
+.ccfolia-param-item input.readonly-field {
+  border-bottom: 1px solid var(--cc-border-sub) !important;
+  color: var(--color-text-secondary) !important;
+  cursor: default;
+}
+
+/* 追加/削除ボタン */
+.ccfolia-btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.ccfolia-btn-icon:hover {
+  background-color: var(--cc-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.ccfolia-btn-icon--remove {
+  color: var(--color-error);
+}
+
+.ccfolia-btn-icon--remove:hover {
+  background-color: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+/* 立ち絵・差分 */
+.ccfolia-faces-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ccfolia-face-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--cc-bg-header);
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+
+.ccfolia-face-item input[type="text"] {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-accent-primary);
+  color: var(--color-text-primary);
+  padding: 4px 0;
+  outline: none;
+}
+
+/* トグルスイッチ */
+.ccfolia-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.ccfolia-toggle-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.ccfolia-toggle-title {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-size: 13px;
+}
+
+.ccfolia-toggle-desc {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.ccfolia-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 16px;
+}
+
+.ccfolia-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ccfolia-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-text-muted);
+  transition: .2s;
+  border-radius: 20px;
+}
+
+.ccfolia-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  bottom: -2px;
+  background-color: var(--color-text-primary);
+  transition: .2s;
+  border-radius: 50%;
+}
+
+input:checked+.ccfolia-slider {
+  background-color: color-mix(in srgb, var(--color-accent-primary) 60%, transparent);
+}
+
+input:checked+.ccfolia-slider:before {
+  transform: translateX(16px);
+  background-color: var(--color-accent-primary);
+}
+
+input:disabled+.ccfolia-slider {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+/* 小さいボタン */
+.ccfolia-btn-small {
+  background: var(--cc-bg-hover);
+  border: 1px solid var(--cc-border-input);
+  color: var(--color-text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.2s;
+}
+
+.ccfolia-btn-small:hover {
+  background: var(--cc-bg-active);
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 12. チャットパレット構成
+ * ----------------------------------------------------------------------------
+ */
+.chatpalette-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 8px;
+  border: 1px solid var(--cc-border-main);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cp-block {
+  display: flex;
+  flex-direction: row;
+  background: var(--cc-bg-input);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.cp-block+.cp-block {
+  border-top: 1px dashed var(--color-border);
+}
+
+.cp-block.dragging {
+  opacity: 0.5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* サイドバー */
+.cp-block__sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: rgba(0, 0, 0, 0.15);
+  border-right: 1px solid var(--color-border);
+  flex-shrink: 0;
+  width: 32px;
+}
+
+.cp-block__drag-handle {
+  cursor: grab;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.cp-block__drag-handle:hover {
+  opacity: 1;
+}
+
+.cp-block__drag-handle:active {
+  cursor: grabbing;
+}
+
+.cp-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+  opacity: 0.5;
+}
+
+.cp-action-btn:hover {
+  background: var(--cc-bg-hover);
+  color: var(--color-text-primary);
+  opacity: 1;
+}
+
+.cp-action-btn--delete:hover {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.cp-action-btn:disabled {
+  opacity: 0.15;
+  cursor: not-allowed;
+}
+
+/* テキスト本体 */
+.cp-block__body {
+  flex: 1;
+  padding: 8px 12px;
+  position: relative;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.cp-block__text-preview {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+/* フェードオーバーレイ */
+.cp-block__fade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2.5em;
+  background: linear-gradient(to bottom, transparent, var(--cc-bg-input) 85%);
+  pointer-events: none;
+}
+
+.cp-block.is-expanded .cp-block__fade {
+  display: none;
+}
+
+/* 展開・折りたたみ */
+.cp-block:not(.is-expanded) .cp-block__body {
+  max-height: calc(13px * 1.5 * 3 + 16px);
+  overflow: hidden;
+}
+
+.cp-block.is-expanded .cp-block__body {
+  max-height: 300px;
+  overflow-y: auto;
+  cursor: default;
+}
+
+/* カスタムブロック用エディタ */
+.cp-block__editor {
+  display: none;
+}
+
+.cp-block.is-expanded .cp-block__editor {
+  display: block;
+  margin-top: 8px;
+}
+
+.cp-block.is-expanded .cp-block__text-preview.custom-preview {
+  display: none;
+}
+
+.cp-block__editor textarea {
+  width: 100%;
+  background: var(--cc-bg-icon);
+  border: 1px solid var(--cc-border-input);
+  color: var(--color-text-primary);
+  padding: 8px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  resize: vertical;
+  min-height: 80px;
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 13. ローディング表示
+ * ----------------------------------------------------------------------------
+ */
+.loading-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg-overlay);
+  z-index: var(--z-overlay);
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-overlay.visible {
+  display: flex;
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.loading-spinner__dots {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.loading-spinner__dot {
+  width: 12px;
+  height: 12px;
+  background: var(--color-accent-primary);
+  border-radius: 50%;
+  animation: loadingPulse 1.4s ease-in-out infinite;
+}
+
+.loading-spinner__dot:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.loading-spinner__dot:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+.loading-spinner__text {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  animation: loadingFade 1.4s ease-in-out infinite;
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 14. トースト通知
+ * ----------------------------------------------------------------------------
+ */
+.toast {
+  position: fixed;
+  bottom: var(--space-xl);
+  right: var(--space-xl);
+  padding: var(--space-md) var(--space-xl);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  z-index: var(--z-toast);
+  animation: slideInRight 0.3s ease;
+  box-shadow: var(--shadow-lg);
+}
+
+.toast--success {
+  background: var(--color-accent-primary);
+  color: var(--color-text-primary);
+}
+
+.toast--error {
+  background: var(--color-error);
+  color: var(--color-text-primary);
+}
+
+.toast.hiding {
+  animation: slideOutRight 0.3s ease forwards;
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 15. フッター
+ * ----------------------------------------------------------------------------
+ */
+.app-footer {
+  text-align: center;
+  padding: var(--space-2xl) 0 var(--space-xl);
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-2xl);
+}
+
+.app-footer__text {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.8;
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 16. アニメーション
+ * ----------------------------------------------------------------------------
+ */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shakeIn {
+  0% {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+
+  25% {
+    transform: translateX(5px);
+  }
+
+  50% {
+    transform: translateX(-3px);
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes loadingPulse {
+
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes loadingFade {
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 17. レスポンシブ対応
+ * ----------------------------------------------------------------------------
+ */
+@media (max-width: 640px) {
+  .app-container {
+    padding: var(--space-md) var(--space-sm);
+  }
+
+  .app-header__title {
+    font-size: var(--text-2xl);
+  }
+
+  .step-card {
+    padding: var(--space-lg);
+  }
+
+  .options-integrated .options-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-times5-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .url-input-group {
+    flex-direction: column;
+  }
+
+  .toast {
+    left: var(--space-md);
+    right: var(--space-md);
+    bottom: var(--space-md);
+  }
+}
+
+@media (min-width: 1200px) {
+  .preview-columns {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .preview-col--left {
+    flex: 1 1 0%;
+  }
+
+  .preview-col--right {
+    flex: 1 1 0%;
+  }
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 18. ユーティリティ
+ * ----------------------------------------------------------------------------
+ */
+.hidden {
+  display: none !important;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
