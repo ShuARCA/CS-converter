@@ -1,0 +1,9 @@
+{
+  "name": "ccfolia-cs-converter",
+  "version": "1.0.0",
+  "description": "ココフォリア キャラクターシート変換ツール (CoC6版)",
+  "scripts": {
+    "dev": "npx -y serve . -l 3000",
+    "start": "npx -y serve . -l 3000"
+  }
+}
