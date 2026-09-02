@@ -94,30 +94,28 @@ export function showPreview(charData, options, chatPalette, isInitial = false) {
   const previewSection = document.getElementById('preview-section');
   if (!previewSection) return;
 
+  previewSection.classList.add('visible');
+
   if (isInitial) {
-    // 基本情報
+    // 基本情報（キャラ固有変換データ: 常に上書き）
     setValue('preview-name', charData.name || '名無し');
     setValue('preview-initiative', charData.stats?.DEX || 0);
 
-    // メモ
-    setValue('preview-memo', charData.memo || '');
-
-    // 駒サイズ・座標
+    // 駒サイズ・座標（optionsの現在値を反映）
     setValue('preview-size', options.tokenSize);
     setValue('preview-x', options.tokenSize * -12);
     setValue('preview-y', options.tokenSize * -12);
 
-    // 参照URL
+    // 参照URL（キャラ固有変換データ: 常に上書き）
     setValue('preview-url', charData.externalUrl || charData.url || '');
 
     // アイコン画像
     const iconPlaceholder = document.querySelector('.ccfolia-icon-placeholder');
     if (iconPlaceholder) {
-      // ココフォリア側で画像URLからの直接貼り付けが許可されていないため、常にデフォルトアイコンを表示
       iconPlaceholder.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
     }
 
-    // ステータス（固定）
+    // ステータス（固定: キャラ固有変換データで上書き）
     const stats = charData.stats || {};
     setValue('preview-hp-val', stats.currentHP || 0);
     setValue('preview-hp-max', stats.maxHP || 0);
@@ -126,26 +124,14 @@ export function showPreview(charData, options, chatPalette, isInitial = false) {
     setValue('preview-san-val', stats.currentSAN || 0);
     setValue('preview-san-max', stats.initialSAN || 0);
 
-    // パラメータ（固定）
+    // パラメータ（固定: キャラ固有変換データで上書き）
     const paramNames = ['STR', 'CON', 'POW', 'DEX', 'APP', 'SIZ', 'INT', 'EDU', 'DB'];
     paramNames.forEach(param => {
       setValue(`preview-param-${param}`, stats[param] !== undefined ? stats[param] : (param === 'DB' ? '' : 0));
     });
 
-    // カスタム項目の初期化
-    const customStatusContainer = document.getElementById('preview-status-custom');
-    if (customStatusContainer) customStatusContainer.innerHTML = '';
-    
-    const customParamsContainer = document.getElementById('preview-params-custom');
-    if (customParamsContainer) customParamsContainer.innerHTML = '';
-    
-    const facesContainer = document.getElementById('preview-faces-grid');
-    if (facesContainer) facesContainer.innerHTML = '';
-
-    // トグル
-    setCheckbox('preview-secret', options.hideStatus);
-    setCheckbox('preview-invisible', options.invisible);
-    setCheckbox('preview-hide-status', options.hideStatusFromBoard);
+    // ※キャラクターメモ、カスタムステータス、カスタムパラメータ、トグル設定は
+    // プリセットデータのため変換時に上書き・クリアしない
   }
 
   // チャットパレット (常に更新)

@@ -28,12 +28,31 @@ async function fetchWithTimeout(url) {
 }
 
 /**
- * CORSプロキシ経由でHTMLを取得する（3段階フォールバック）
+ * CORSプロキシ経由でデータを取得する（直接fetch → CORSプロキシ順次フォールバック）
  * @param {string} targetUrl - 取得対象の元URL
- * @returns {Promise<string>} HTML文字列
- * @throws {AppError} 全プロキシ失敗時は PROXY_ERROR
+ * @returns {Promise<string>} レスポンス文字列
+ * @throws {AppError} 全て失敗時は PROXY_ERROR または HTTP 系エラー
  */
 export async function fetchWithProxy(targetUrl) {
+  // 1. まず直接 fetch を試みる（保管所など CORS が許可されているサービスはこれで即座に取得できる）
+  try {
+    const directRes = await fetchWithTimeout(targetUrl);
+    if (directRes.status === 404) {
+      throw new AppError('HTTP_NOT_FOUND');
+    }
+    if (directRes.ok) {
+      const text = await directRes.text();
+      return text;
+    }
+  } catch (e) {
+    if (e instanceof AppError && e.code === 'HTTP_NOT_FOUND') {
+      throw e;
+    }
+    // CORSエラー（TypeError: Failed to fetch）やネットワークエラーの場合はプロキシにフォールバック
+    console.info('[fetcher] Direct fetch skipped or failed (likely CORS), falling back to CORS proxies:', e.message);
+  }
+
+  // 2. 直接 fetch が失敗した場合、CORSプロキシ経由で順次試す
   /** @type {AppError|null} 最後に発生した HTTP 系エラー（404等）を保持 */
   let lastHttpError = null;
 
@@ -41,8 +60,8 @@ export async function fetchWithProxy(targetUrl) {
     const proxyUrl = proxy.buildUrl(targetUrl);
     try {
       const res = await fetchWithTimeout(proxyUrl);
-      const html = await proxy.extractBody(res);
-      return html;
+      const text = await proxy.extractBody(res);
+      return text;
     } catch (e) {
       // HTTP_NOT_FOUND はプロキシ問題ではないため即座に throw
       if (e instanceof AppError && e.code === 'HTTP_NOT_FOUND') {
@@ -60,5 +79,6 @@ export async function fetchWithProxy(targetUrl) {
 
   // 全プロキシ失敗
   if (lastHttpError) throw lastHttpError;
-  throw new AppError('PROXY_ERROR', 'すべてのCORSプロキシへの接続に失敗しました');
+  throw new AppError('PROXY_ERROR', 'データの取得に失敗しました。時間をおいて再度お試しいただくか、ココフォリア駒出力を直接貼り付けてください。');
 }
+

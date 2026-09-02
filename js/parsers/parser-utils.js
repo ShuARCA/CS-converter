@@ -56,6 +56,7 @@ export function safeInputValue(doc, selector, fallback = '') {
  * @returns {string} 正規化された技能名
  */
 export function normalizeSkillName(rawName) {
+  if (!rawName) return '';
   const trimmed = rawName.trim()
     // 全角括弧を半角に統一
     .replace(/（/g, '(').replace(/）/g, ')')
@@ -64,17 +65,43 @@ export function normalizeSkillName(rawName) {
       String.fromCharCode(c.charCodeAt(0) - 0xFEE0)
     );
 
-  // 括弧付き技能の基本名を抽出（例: "運転(自動車)" → "運転"）
-  const baseName = trimmed.replace(/\(.*\)$/, '').trim();
+  // 1. こぶし（パンチ）の完全一致またはエイリアス（括弧を含む標準技能のため最優先）
+  if (['こぶし', 'パンチ', 'こぶし(パンチ)'].includes(trimmed)) {
+    return 'こぶし（パンチ）';
+  }
 
-  // 直接マッチ
+  // 2. SKILL_NAME_NORMALIZE_MAP への直接完全マッチ
   if (SKILL_NAME_NORMALIZE_MAP[trimmed]) return SKILL_NAME_NORMALIZE_MAP[trimmed];
+
+  // 3. SKILLS定義（標準60技能）への直接完全マッチ
+  const directMatch = SKILLS.find(s => s.name.replace(/（/g, '(').replace(/）/g, ')') === trimmed);
+  if (directMatch) return directMatch.name;
+
+  // 4. 括弧の中に具体的なサブカテゴリがあるかチェック（例: "芸術(演技)", "運転(自動車)"）
+  const subMatch = trimmed.match(/^(.+?)\((.+?)\)$/);
+  if (subMatch) {
+    const mainPart = subMatch[1].trim();
+    const subPart = subMatch[2].trim();
+
+    // メイン部分の正規化（エイリアスがあれば適用）
+    let normMain = mainPart;
+    if (SKILL_NAME_NORMALIZE_MAP[mainPart]) {
+      normMain = SKILL_NAME_NORMALIZE_MAP[mainPart].replace(/\(\)$/, '');
+    } else {
+      const matchDef = SKILLS.find(s => s.name.replace(/\(\)$/, '') === mainPart || (s.normNames && s.normNames.includes(mainPart)));
+      if (matchDef) {
+        normMain = matchDef.name.replace(/\(\)$/, '');
+      }
+    }
+    // サブカテゴリを保持したまま返す
+    return `${normMain}(${subPart})`;
+  }
+
+  // 5. 括弧なし、または空括弧 "運転()" の場合
+  const baseName = trimmed.replace(/\(\)$/, '').trim();
+
   // 基本名でマッチ
   if (SKILL_NAME_NORMALIZE_MAP[baseName]) return SKILL_NAME_NORMALIZE_MAP[baseName];
-
-  // SKILLS定義から直接検索
-  const directMatch = SKILLS.find(s => s.name === trimmed);
-  if (directMatch) return directMatch.name;
 
   // normNamesで検索
   const normMatch = SKILLS.find(s => s.normNames.includes(baseName) || s.normNames.includes(trimmed));
@@ -154,64 +181,115 @@ export function computeDerivedStats(charData) {
   s.luck = s.POW * 5;
   // 知識 = EDU × 5
   s.know = s.EDU * 5;
-  // DB（未取得の場合のみ計算）
-  if (!s.DB || s.DB === '+0') {
-    s.DB = calcDB(s.STR, s.SIZ);
-  }
+  // DB は各サービスごとに表記ゆれがあるため、常に STR + SIZ から計算して統一する
+  s.DB = calcDB(s.STR, s.SIZ);
 }
 
+const CATEGORY_ORDER = ['combat', 'search', 'action', 'negotiate', 'knowledge'];
+
 /**
- * 全60技能分の SkillEntry 配列を構築する（既存の取得技能データと照合）
- * @param {Map<string, { value: number, displayName: string }>} parsedSkills - パース済み技能データ
+ * 全技能分の SkillEntry 配列を構築する（標準60技能 + 各カテゴリの追加技能）
+ * @param {Map<string, { value: number, displayName: string, category?: string }>} parsedSkills - パース済み技能データ
  * @param {object} stats - 能力値
  * @returns {Array<object>} SkillEntry[]
  */
 export function buildSkillEntries(parsedSkills, stats) {
-  // 1. 標準技能の構築
-  const standardSkills = SKILLS.map(skillDef => {
-    const initial = resolveInitial(skillDef.initial, stats);
-    const parsed = parsedSkills.get(skillDef.name);
+  const resultSkills = [];
+  const handledKeys = new Set();
 
-    if (parsed) {
-      // 処理した技能は Map から削除
-      parsedSkills.delete(skillDef.name);
-      const value = parsed.value;
-      return {
-        name: skillDef.name,
-        displayName: parsed.displayName || skillDef.name,
-        value,
-        initial,
-        isAcquired: value > initial,
-      };
+  for (const category of CATEGORY_ORDER) {
+    const categorySkills = SKILLS.filter(s => s.category === category);
+
+    // 1. このカテゴリに属する標準技能の登録
+    for (const skillDef of categorySkills) {
+      const initial = resolveInitial(skillDef.initial, stats);
+
+      // 完全一致で検索（例: "目星", "回避"）
+      let matched = false;
+      if (parsedSkills.has(skillDef.name)) {
+        const parsed = parsedSkills.get(skillDef.name);
+        handledKeys.add(skillDef.name);
+        resultSkills.push({
+          name: skillDef.name,
+          displayName: parsed.displayName || skillDef.name,
+          value: parsed.value,
+          initial,
+          category: skillDef.category,
+          isAcquired: parsed.value > initial,
+        });
+        matched = true;
+      }
+
+      // 括弧付き標準技能（"運転()", "芸術()", "製作()", "操縦()", "母国語()"）の場合：
+      // パース結果にある具体的なサブカテゴリ付き技能（例: "芸術(演技)", "芸術(ボウリング)"）をこの位置に追加
+      if (skillDef.name.endsWith('()')) {
+        const prefix = skillDef.name.slice(0, -2);
+        for (const [key, parsed] of parsedSkills.entries()) {
+          if (key.startsWith(prefix + '(') && key !== skillDef.name && !handledKeys.has(key)) {
+            handledKeys.add(key);
+            resultSkills.push({
+              name: key,
+              displayName: parsed.displayName || key,
+              value: parsed.value,
+              initial,
+              category: skillDef.category,
+              isAcquired: parsed.value > initial,
+            });
+            matched = true;
+          }
+        }
+      }
+
+      // パース結果に該当する技能が1つも無かった場合は、初期値エントリーを追加
+      if (!matched) {
+        resultSkills.push({
+          name: skillDef.name,
+          displayName: skillDef.name,
+          value: initial,
+          initial,
+          category: skillDef.category,
+          isAcquired: false,
+        });
+      }
     }
 
-    // 未取得: 初期値を使用
-    return {
-      name: skillDef.name,
-      displayName: skillDef.name,
-      value: initial,
-      initial,
-      isAcquired: false,
-    };
-  });
+    // 2. このカテゴリに追加されたカスタム技能（自由記入技能）の登録
+    for (const [key, parsed] of parsedSkills.entries()) {
+      if (handledKeys.has(key)) continue;
 
-  // 2. カスタム技能（標準技能リストにないもの）の追加
-  const customSkills = [];
+      // このカテゴリと一致する場合に追加
+      if (parsed.category === category) {
+        handledKeys.add(key);
+        const initial = 0;
+        resultSkills.push({
+          name: key,
+          displayName: parsed.displayName || key,
+          value: parsed.value,
+          initial,
+          category,
+          isAcquired: parsed.value > initial || parsed.value > 0,
+        });
+      }
+    }
+  }
+
+  // 3. カテゴリ未指定、または未知のカテゴリのカスタム技能（末尾に追加）
   for (const [key, parsed] of parsedSkills.entries()) {
-    // すでに standardSkills に存在する、または標準技能名/別名と重複するものは防衛的に除外
-    const isStandard = SKILLS.some(s => s.name === key || (s.normNames && s.normNames.includes(key)));
-    if (isStandard) continue;
+    if (handledKeys.has(key)) continue;
 
-    // カスタム技能の初期値は通常取得できないため、0 とする
     const initial = 0;
-    customSkills.push({
+    const cat = parsed.category || 'other';
+    resultSkills.push({
       name: key,
       displayName: parsed.displayName || key,
       value: parsed.value,
       initial,
-      isAcquired: parsed.value > initial,
+      category: cat,
+      isAcquired: parsed.value > initial || parsed.value > 0,
     });
   }
 
-  return [...standardSkills, ...customSkills];
+  return resultSkills;
 }
+
+

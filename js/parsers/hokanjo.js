@@ -1,33 +1,100 @@
 /**
- * parsers/hokanjo.js — キャラクター保管所 HTMLパーサー
+ * parsers/hokanjo.js — キャラクター保管所 JSONパーサー
  *
- * URL: https://charasheet.vampire-blood.net/{id}
- * HTMLフォームの input[name] 属性ベースで全60技能を取得する。
+ * API URL: https://charasheet.vampire-blood.net/{id}.js
+ * 入力URL: https://charasheet.vampire-blood.net/{id}
+ * レスポンスは純粋なJSONオブジェクト。
  */
 
 import { AppError } from '../constants.js';
 import {
-  safeInt, safeInputValue, normalizeSkillName, findSkillDef,
+  safeInt, normalizeSkillName,
   createEmptyCharacterData, computeDerivedStats, buildSkillEntries,
 } from './parser-utils.js';
 
 /**
- * キャラクター保管所のHTMLをパースしてCharacterDataを返す
- * @param {string} html - 取得したHTML文字列
+ * 各技能テーブルの定義
+ * key:     JSONキー（合計値配列）
+ * names:   技能名（インデックス順、固定）
+ * subKeys: サブカテゴリ名が入るJSONキー（インデックス → JSONキー名）
+ */
+const SKILL_TABLE_DEFS = [
+  {
+    key: 'TBAP',
+    nameKey: 'TBAName',
+    category: 'combat',
+    names: [
+      '回避', 'キック', '組み付き', 'こぶし（パンチ）', '頭突き', '投擲',
+      'マーシャルアーツ', '拳銃', 'サブマシンガン', 'ショットガン', 'マシンガン', 'ライフル',
+    ],
+  },
+  {
+    key: 'TFAP',
+    nameKey: 'TFAName',
+    category: 'search',
+    names: [
+      '応急手当', '鍵開け', '隠す', '隠れる', '聞き耳', '忍び歩き',
+      '写真術', '精神分析', '追跡', '登攀', '図書館', '目星',
+    ],
+  },
+  {
+    key: 'TAAP',
+    nameKey: 'TAAName',
+    category: 'action',
+    names: [
+      '運転', '機械修理', '重機械操作', '乗馬', '水泳',
+      '製作', '操縦', '跳躍', '電気修理', 'ナビゲート', '変装',
+    ],
+    subKeys: {
+      0: 'unten_bunya',
+      5: 'seisaku_bunya',
+      6: 'main_souju_norimono',
+    },
+  },
+  {
+    key: 'TCAP',
+    nameKey: 'TCAName',
+    category: 'negotiate',
+    names: ['言いくるめ', '信用', '説得', '値切り', '母国語'],
+    subKeys: {
+      4: 'mylang_name',
+    },
+  },
+  {
+    key: 'TKAP',
+    nameKey: 'TKAName',
+    category: 'knowledge',
+    names: [
+      '医学', 'オカルト', '化学', 'クトゥルフ神話', '芸術', '経理',
+      '考古学', 'コンピューター', '心理学', '人類学', '生物学', '地質学',
+      '電子工学', '天文学', '博物学', '物理学', '法律', '薬学', '歴史',
+    ],
+    subKeys: {
+      4: 'geijutu_bunya',
+    },
+  },
+];
+
+/**
+ * キャラクター保管所のJSONをパースしてCharacterDataを返す
+ * @param {string} jsonText - 取得したJSON文字列
  * @param {string} id - キャラクターID
  * @returns {Promise<object>} CharacterData
  */
-export async function parseHokanjo(html, id) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
+export async function parseHokanjo(jsonText, id) {
+  let d;
+  try {
+    d = typeof jsonText === 'string' ? JSON.parse(jsonText) : jsonText;
+  } catch (e) {
+    throw new AppError('PARSE_FAILED', `JSONパース失敗: ${e.message}`);
+  }
 
   const sourceUrl = `https://charasheet.vampire-blood.net/${id}`;
   const charData = createEmptyCharacterData(sourceUrl, 'hokanjo');
 
   // ── キャラクター名 ──
   try {
-    const pcName = safeInputValue(doc, '[name="pc_name"]');
-    charData.name = pcName || '名無し';
+    charData.name = (d.pc_name ?? '').trim() || '名無し';
   } catch (e) {
     charData.parseWarnings.push('キャラクター名の取得に失敗');
     charData.isPartial = true;
@@ -35,21 +102,21 @@ export async function parseHokanjo(html, id) {
 
   // ── 能力値（NP1〜NP8） ──
   const statMapping = [
-    { name: 'STR', input: 'NP1' },
-    { name: 'CON', input: 'NP2' },
-    { name: 'POW', input: 'NP3' },
-    { name: 'DEX', input: 'NP4' },
-    { name: 'APP', input: 'NP5' },
-    { name: 'SIZ', input: 'NP6' },
-    { name: 'INT', input: 'NP7' },
-    { name: 'EDU', input: 'NP8' },
+    { name: 'STR', key: 'NP1' },
+    { name: 'CON', key: 'NP2' },
+    { name: 'POW', key: 'NP3' },
+    { name: 'DEX', key: 'NP4' },
+    { name: 'APP', key: 'NP5' },
+    { name: 'SIZ', key: 'NP6' },
+    { name: 'INT', key: 'NP7' },
+    { name: 'EDU', key: 'NP8' },
   ];
 
-  for (const { name, input } of statMapping) {
+  for (const { name, key } of statMapping) {
     try {
-      const val = safeInputValue(doc, `[name="${input}"]`);
-      charData.stats[name] = safeInt(val, 0);
-      if (charData.stats[name] === 0) {
+      const val = safeInt(d[key], 0);
+      charData.stats[name] = val;
+      if (val === 0) {
         charData.parseWarnings.push(`${name}の取得に失敗（値が0またはパースエラー）`);
         charData.isPartial = true;
       }
@@ -59,89 +126,58 @@ export async function parseHokanjo(html, id) {
     }
   }
 
-  // ── HP/MP/SAN ──
-  try {
-    charData.stats.currentHP = safeInt(safeInputValue(doc, '[name="NP9"]'), 0);
-  } catch { /* computeDerivedStatsで補完 */ }
-
-  try {
-    charData.stats.currentMP = safeInt(safeInputValue(doc, '[name="NP10"]'), 0);
-  } catch { /* computeDerivedStatsで補完 */ }
-
-  try {
-    charData.stats.currentSAN = safeInt(safeInputValue(doc, '[name="NP16"]'), 0);
-  } catch { /* computeDerivedStatsで補完 */ }
-
-  // ── DB（文字列のまま） ──
-  try {
-    const dbVal = safeInputValue(doc, '[name="NP18"]');
-    if (dbVal) charData.stats.DB = dbVal;
-  } catch { /* computeDerivedStatsで補完 */ }
+  // ── HP / MP / SAN ──
+  charData.stats.currentHP  = safeInt(d.NP9,      0);
+  charData.stats.currentMP  = safeInt(d.NP10,     0);
+  charData.stats.currentSAN = safeInt(d.SAN_Left, 0);
 
   // ── 派生ステータス計算 ──
   computeDerivedStats(charData);
 
-  // ── 技能パース（HTMLテーブル構造から動的に全技能をパース） ──
+  // ── 技能パース ──
   const parsedSkills = new Map();
 
-  const tableConfigs = [
-    { selector: '#Table_battle_arts', valName: 'TBAP[]', nameInput: 'TBAName[]' },
-    { selector: '#Table_find_arts', valName: 'TFAP[]', nameInput: 'TFAName[]' },
-    { selector: '#Table_act_arts', valName: 'TAAP[]', nameInput: 'TAAName[]' },
-    { selector: '#Table_commu_arts', valName: 'TCAP[]', nameInput: 'TCAName[]' },
-    { selector: '#Table_know_arts', valName: 'TKAP[]', nameInput: 'TKAName[]' },
-  ];
+  for (const tableDef of SKILL_TABLE_DEFS) {
+    const values = d[tableDef.key];
+    if (!Array.isArray(values)) continue;
 
-  for (const config of tableConfigs) {
-    try {
-      const table = doc.querySelector(config.selector);
-      if (!table) continue;
+    // 1. 基本固定技能
+    for (let i = 0; i < tableDef.names.length; i++) {
+      const value = safeInt(values[i], -1);
+      if (value < 0) continue;
 
-      const rows = table.querySelectorAll('tr');
-      for (const row of rows) {
-        // 合計値のインプット要素を取得
-        const valEl = row.querySelector(`input[name="${config.valName}"]`);
-        if (!valEl) continue;
+      let skillName = tableDef.names[i];
 
-        const value = safeInt(valEl.value, -1);
-        if (value < 0) continue;
+      // サブカテゴリが定義されている場合
+      if (tableDef.subKeys && tableDef.subKeys[i] !== undefined) {
+        const subKey = tableDef.subKeys[i];
+        const subVal = (d[subKey] ?? '').trim();
+        skillName = subVal ? `${skillName}(${subVal})` : `${skillName}()`;
+      }
 
-        // 技能名を表す th 要素を取得
-        const th = row.querySelector('th');
-        if (!th) continue;
+      const normalizedName = normalizeSkillName(skillName);
+      parsedSkills.set(normalizedName, { value, displayName: skillName, category: tableDef.category });
+    }
 
-        let skillName = '';
+    // 2. ユーザー追加技能（「＋増やす」で行追加された自由記入技能）
+    const customNames = d[tableDef.nameKey];
+    if (Array.isArray(customNames)) {
+      for (let j = 0; j < customNames.length; j++) {
+        const customName = (customNames[j] ?? '').trim();
+        if (!customName) continue;
 
-        // カスタム技能名入力欄があるか
-        const customNameEl = th.querySelector(`input[name="${config.nameInput}"]`);
-        if (customNameEl) {
-          skillName = (customNameEl.value ?? '').trim();
-        } else {
-          // th内にサブカテゴリ入力欄（例: unten_bunya, geijutu_bunya 等）があるか確認
-          const subInput = th.querySelector('input');
-          if (subInput) {
-            const subVal = (subInput.value ?? '').trim();
-            const thText = th.textContent.trim();
-            // "運転(   )" などのテキストから括弧を取り除いて基本名を取得
-            const baseName = thText.split('(')[0].trim();
-            if (subVal) {
-              skillName = `${baseName}(${subVal})`;
-            } else {
-              skillName = `${baseName}()`;
-            }
-          } else {
-            skillName = th.textContent.trim();
-          }
+        // 保管所では追加行の値は values の固定長以降に格納される
+        let value = -1;
+        if (values.length > tableDef.names.length + j) {
+          value = safeInt(values[tableDef.names.length + j], -1);
         }
 
-        if (!skillName) continue;
-
-        const normalizedName = normalizeSkillName(skillName);
-        parsedSkills.set(normalizedName, { value, displayName: skillName });
+        if (value >= 0) {
+          const normalizedName = normalizeSkillName(customName);
+          // カテゴリを付与することでbuildSkillEntriesが正しい位置に挿入できる
+          parsedSkills.set(normalizedName, { value, displayName: customName, category: tableDef.category });
+        }
       }
-    } catch (e) {
-      charData.parseWarnings.push(`テーブル (${config.selector}) の技能パースエラー: ${e.message}`);
-      charData.isPartial = true;
     }
   }
 
@@ -149,7 +185,7 @@ export async function parseHokanjo(html, id) {
 
   // 必須フィールドの最終チェック
   if (charData.name === '名無し' && charData.stats.STR === 0 && charData.stats.CON === 0) {
-    throw new AppError('PARSE_FAILED', 'キャラクター保管所HTMLから必須データを取得できませんでした');
+    throw new AppError('PARSE_FAILED', 'キャラクター保管所JSONから必須データを取得できませんでした');
   }
 
   return charData;

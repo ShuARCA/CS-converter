@@ -7,7 +7,7 @@
 const PATTERNS = [
   { service: 'iachara_redirect', regex: /^https?:\/\/iachara\.com\// },
   { service: 'hokanjo',          regex: /^https?:\/\/charasheet\.vampire-blood\.net\/(\d+)/ },
-  { service: 'charaeno',         regex: /^https?:\/\/charaeno\.sakasin\.net\/6\/(\d+)/   },
+  { service: 'charaeno',         regex: /^https?:\/\/charaeno\.com\/6th\/([\w-]+)/        },
 ];
 
 /**

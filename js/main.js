@@ -13,6 +13,13 @@ import { buildChatPalette } from './chatpalette.js';
 import { buildCocofoliaJson } from './converter.js';
 import { getPaletteBlocks, renderPaletteBuilder, addCustomBlock } from './paletteConfig.js';
 import {
+  getLastPresetIndex,
+  loadPresetFromSlot,
+  applyPresetDataToUI,
+} from './preset.js';
+import { setupPresetUI } from './presetUI.js';
+import { ColorPicker } from './ColorPicker.js';
+import {
   showLoading,
   showError,
   showPreview,
@@ -26,6 +33,9 @@ const state = {
   characterName: '',
   charData: null // パース済みデータを保持
 };
+
+// カラーピッカーインスタンス
+let colorPickerInstance = null;
 
 /**
  * 画面上の入力要素からオプションオブジェクトを収集する
@@ -67,8 +77,10 @@ function collectOptions() {
   const tokenSize = parseFloat(document.getElementById('preview-size')?.value) || 4;
   const x = tokenSize * -12;
   const y = tokenSize * -12;
-  const useDefaultColor = document.getElementById('opt-use-default-color').checked;
-  const chatColor = document.getElementById('opt-chat-color').value || '#a4c2f4';
+
+  const chatColorMode = document.querySelector('input[name="chatColorMode"]:checked')?.value || 'default';
+  const useDefaultColor = chatColorMode === 'default';
+  const chatColor = document.getElementById('opt-chat-color')?.value || '#A4C2F4';
 
   const customStatuses = Array.from(document.querySelectorAll('.custom-status-row')).map(row => ({
     label: row.querySelector('.status-label').value,
@@ -101,6 +113,7 @@ function collectOptions() {
     tokenSize,
     x,
     y,
+    chatColorMode,
     useDefaultColor,
     chatColor,
     customStatuses,
@@ -234,22 +247,46 @@ async function handleConvert() {
     } else {
       // 2b. URL入力モード
       const { service, id } = validation;
-      const html = await fetchWithProxy(url);
-      charData = await parse(service, html, id);
+
+      // サービスごとのAPIエンドポイントに変換
+      let apiUrl;
+      if (service === 'hokanjo') {
+        // 保管所: {id}.js でJSON取得
+        apiUrl = `https://charasheet.vampire-blood.net/${id}.js`;
+      } else if (service === 'charaeno') {
+        // キャラエノ: summary APIでJSON取得
+        apiUrl = `https://charaeno.com/api/v1/6th/${id}/summary`;
+      } else {
+        apiUrl = url;
+      }
+
+      try {
+        const body = await fetchWithProxy(apiUrl);
+        charData = await parse(service, body, id);
+      } catch (fetchErr) {
+        if (service === 'charaeno') {
+          // 404（キャラが存在しない）以外はプロキシ/通信エラーとしてココフォリア出力貼り付けへ誘導
+          if (fetchErr instanceof AppError && fetchErr.code === 'HTTP_NOT_FOUND') {
+            throw fetchErr;
+          }
+          throw new AppError('CHARAENO_FETCH_FAILED', fetchErr.message || fetchErr.detail);
+        }
+        throw fetchErr;
+      }
     }
+
+
 
     state.characterName = charData.name || '名無し';
     state.charData = charData;
 
     // JSONで色が指定されていた場合、カラーピッカーに反映
     if (charData.originalColor && validation.type === 'json') {
-      const optUseDefaultColor = document.getElementById('opt-use-default-color');
-      const optChatColor = document.getElementById('opt-chat-color');
-      if (optUseDefaultColor && optChatColor) {
-        optUseDefaultColor.checked = false;
-        optChatColor.disabled = false;
-        optChatColor.value = charData.originalColor;
+      const customRadio = document.querySelector('input[name="chatColorMode"][value="custom"]');
+      if (customRadio) {
+        customRadio.checked = true;
       }
+      updateChatColorUI(charData.originalColor);
     }
 
     // 4. 初回ビルド
@@ -290,13 +327,133 @@ async function handleCopy() {
 }
 
 /**
+ * チャットカラーのUI（隠しinput、スウォッチ、HEX表示、ピッカー）を一括更新する
+ * @param {string} hexColor
+ */
+function updateChatColorUI(hexColor, { skipPicker = false } = {}) {
+  if (!hexColor) return;
+  const hex = hexColor.toUpperCase();
+  const hiddenInput = document.getElementById('opt-chat-color');
+  if (hiddenInput) hiddenInput.value = hex;
+
+  const swatch = document.getElementById('chat-color-swatch');
+  if (swatch) swatch.style.backgroundColor = hex;
+
+  const hexText = document.getElementById('chat-color-hex');
+  if (hexText) hexText.textContent = hex;
+
+  // skipPicker=true のとき（onChange 経由）はピッカーに再設定しない
+  // （再設定すると _updateState→rgbToHsv でカーソルが正規化位置に飛ぶ）
+  if (!skipPicker && colorPickerInstance) {
+    colorPickerInstance.setColorStr(hex);
+  }
+}
+
+/**
+ * カラーピッカーおよびポップオーバーの初期化
+ */
+function setupChatColorPicker() {
+  const popoverEl = document.getElementById('global-color-picker-container');
+  const triggerBtn = document.getElementById('btn-chat-color-trigger');
+  if (!popoverEl || !triggerBtn) return;
+
+  const initialColor = document.getElementById('opt-chat-color')?.value || '#A4C2F4';
+
+  // ColorPicker インスタンス初期化 (hasAlpha: false)
+  colorPickerInstance = new ColorPicker(popoverEl, {
+    color: initialColor,
+    hasAlpha: false,
+    onChange: (hex) => {
+      // skipPicker: true — ピッカー自身が色を変えたので再設定不要
+      updateChatColorUI(hex, { skipPicker: true });
+      requestRebuild();
+    },
+  });
+
+  const positionPopover = () => {
+    const triggerRect = triggerBtn.getBoundingClientRect();
+    const popoverRect = popoverEl.getBoundingClientRect();
+    const margin = 6;
+
+    let top = triggerRect.bottom + margin;
+    let left = triggerRect.left;
+
+    // 画面下部からはみ出る場合は上側に表示
+    if (top + popoverRect.height > window.innerHeight && triggerRect.top > popoverRect.height + margin) {
+      top = triggerRect.top - popoverRect.height - margin;
+    }
+
+    // 画面右端からはみ出る場合は左に寄せる
+    if (left + popoverRect.width > window.innerWidth) {
+      left = Math.max(10, window.innerWidth - popoverRect.width - 16);
+    }
+
+    popoverEl.style.top = `${Math.round(top)}px`;
+    popoverEl.style.left = `${Math.round(left)}px`;
+  };
+
+  const openPopover = () => {
+    popoverEl.classList.add('visible');
+    popoverEl.setAttribute('aria-hidden', 'false');
+    positionPopover();
+  };
+
+  const closePopover = () => {
+    popoverEl.classList.remove('visible');
+    popoverEl.setAttribute('aria-hidden', 'true');
+  };
+
+  triggerBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (popoverEl.classList.contains('visible')) {
+      closePopover();
+    } else {
+      openPopover();
+    }
+  });
+
+  // 外側クリックで閉じる
+  document.addEventListener('pointerdown', (e) => {
+    if (!popoverEl.classList.contains('visible')) return;
+    if (!popoverEl.contains(e.target) && !triggerBtn.contains(e.target)) {
+      closePopover();
+    }
+  });
+
+  // Escキーで閉じる
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && popoverEl.classList.contains('visible')) {
+      closePopover();
+    }
+  });
+
+  // リサイズ・スクロール時の追従
+  window.addEventListener('resize', () => {
+    if (popoverEl.classList.contains('visible')) positionPopover();
+  });
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (popoverEl.classList.contains('visible')) positionPopover();
+    },
+    { passive: true }
+  );
+
+  // プリセット適用イベント受信時の反映
+  window.addEventListener('presetColorApplied', (e) => {
+    if (e.detail?.color) {
+      updateChatColorUI(e.detail.color);
+    }
+  });
+}
+
+/**
  * UIオプションの連動制御を設定
  */
 function setupOptionControls() {
   const optAllStatTimes5 = document.getElementById('opt-show-stat-times5-all');
   const individualStatTimes5 = document.querySelectorAll('.opt-stat-times5');
-  const optUseDefaultColor = document.getElementById('opt-use-default-color');
-  const optChatColor = document.getElementById('opt-chat-color');
+  const chatColorRadios = document.querySelectorAll('input[name="chatColorMode"]');
 
   // 1. 能力値×5「全部選択」の連動制御
   if (optAllStatTimes5) {
@@ -311,12 +468,12 @@ function setupOptionControls() {
     });
   }
 
-  // 2. チャットカラー「デフォルト色を使用」の連動制御
-  if (optUseDefaultColor && optChatColor) {
-    optUseDefaultColor.addEventListener('change', (e) => {
-      optChatColor.disabled = e.target.checked;
+  // 2. チャットカラーラジオボタンの連動制御
+  chatColorRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      requestRebuild();
     });
-  }
+  });
 
   // 3. 駒サイズの連動制御（X, Yを自動計算: 駒サイズ * -12）
   const previewSize = document.getElementById('preview-size');
@@ -346,6 +503,27 @@ function setupRebuildListeners() {
   });
 }
 
+const createRemoveBtn = () => {
+  return `<button type="button" class="ccfolia-btn-icon ccfolia-btn-icon--remove" title="削除">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>`;
+};
+
+const bindRemoveAndRebuild = (container) => {
+  const removeBtn = container.querySelector('.ccfolia-btn-icon--remove');
+  if (removeBtn) {
+    removeBtn.addEventListener('click', () => {
+      container.remove();
+      requestRebuild();
+    });
+  }
+  const inputs = container.querySelectorAll('input');
+  inputs.forEach(input => {
+    input.addEventListener('input', requestRebuild);
+    input.addEventListener('change', requestRebuild);
+  });
+};
+
 /**
  * プレビュー画面の動的コントロール（＋／－ボタン）のセットアップ
  */
@@ -353,24 +531,6 @@ function setupPreviewDynamicControls() {
   const btnAddFace = document.getElementById('btn-add-face');
   const btnAddStatus = document.getElementById('btn-add-status');
   const btnAddParam = document.getElementById('btn-add-param');
-
-  const createRemoveBtn = () => {
-    return `<button type="button" class="ccfolia-btn-icon ccfolia-btn-icon--remove" title="削除">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>`;
-  };
-
-  const bindRemoveAndRebuild = (container) => {
-    container.querySelector('.ccfolia-btn-icon--remove').addEventListener('click', () => {
-      container.remove();
-      requestRebuild();
-    });
-    const inputs = container.querySelectorAll('input');
-    inputs.forEach(input => {
-      input.addEventListener('input', requestRebuild);
-      input.addEventListener('change', requestRebuild);
-    });
-  };
 
   if (btnAddFace) {
     btnAddFace.addEventListener('click', () => {
@@ -418,9 +578,37 @@ function setupPreviewDynamicControls() {
 
 // アプリケーションの初期化
 document.addEventListener('DOMContentLoaded', () => {
+  setupChatColorPicker();
   setupOptionControls();
   setupRebuildListeners();
   setupPreviewDynamicControls();
+
+  // プリセットUIのセットアップ
+  setupPresetUI({
+    onApply: () => {
+      if (state.charData) {
+        rebuildOutput(true, false);
+      } else {
+        const rawOptions = collectOptions();
+        const sanitizedOptions = sanitizeOptions(rawOptions);
+        renderPaletteBuilder(null, sanitizedOptions, rebuildOutput);
+      }
+    },
+    bindDynamicRowListeners: bindRemoveAndRebuild,
+  });
+
+  // 初回ロード時: 前回使用したプリセットの復元
+  const lastIndex = getLastPresetIndex();
+  if (lastIndex !== null) {
+    const lastPresetData = loadPresetFromSlot(lastIndex);
+    if (lastPresetData) {
+      applyPresetDataToUI(lastPresetData, bindRemoveAndRebuild);
+    }
+  }
+
+  // 初回のチャットパレットビルダー描画
+  const initialOptions = sanitizeOptions(collectOptions());
+  renderPaletteBuilder(null, initialOptions, rebuildOutput);
 
   // 変換ボタンイベント
   const btnConvert = document.getElementById('btn-convert');
