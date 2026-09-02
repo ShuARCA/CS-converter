@@ -23,10 +23,10 @@ export function getCmd(diceCommand) {
  * 特殊ロール（SAN値チェック、不定リセット、アイデア、幸運、知識）のチャットパレット文字列を生成する
  */
 export function generateSpecialRollsLines(charData, options) {
-  const cmd = getCmd(options.diceCommand);
+  const cmd = getCmd(options?.diceCommand);
   const lines = [];
-  const rolls = options.showSpecialRolls || {};
-  const s = charData.stats || {};
+  const rolls = options?.showSpecialRolls || {};
+  const s = charData?.stats || {};
 
   if (rolls.san_check) {
     lines.push(`${cmd}<={SAN} 【SAN値チェック】`);
@@ -53,11 +53,11 @@ export function generateSpecialRollsLines(charData, options) {
  * 能力値×5のチャットパレット文字列を生成する
  */
 export function generateStatsLines(charData, options) {
-  const cmd = getCmd(options.diceCommand);
+  const cmd = getCmd(options?.diceCommand);
   const lines = [];
   const statNames = ['STR', 'CON', 'POW', 'DEX', 'APP', 'SIZ', 'INT', 'EDU'];
   const enabledStats = statNames.filter(stat =>
-    options.showStatTimes5All || (options.showStatTimes5 && options.showStatTimes5[stat])
+    options?.showStatTimes5All || (options?.showStatTimes5 && options.showStatTimes5[stat])
   );
 
   if (enabledStats.length > 0) {
@@ -72,55 +72,52 @@ export function generateStatsLines(charData, options) {
  * 取得技能のチャットパレット文字列を生成する
  */
 export function generateSkillsLines(charData, options) {
-  const cmd = getCmd(options.diceCommand);
+  if (!charData || !Array.isArray(charData.skills)) return '';
+  const cmd = getCmd(options?.diceCommand);
   const lines = [];
-  const s = charData.stats;
+  const s = charData.stats || {};
 
-  // Step 1: ベースリスト（isAcquired=true の技能をSKILLS定義順で）
+  // Step 1: charData.skills はすでにカテゴリ順
+  //   (combat → combat追加 → search → search追加 → action → ... → カテゴリ不明)
+  //   に並んでいるため、その順序を維持したまま対象技能だけを抽出する
   const acquiredSkills = [];
-  for (const skillDef of SKILLS) {
-    const entry = charData.skills.find(sk => sk.name === skillDef.name);
-    if (entry && entry.isAcquired) {
+  const addedSkillKeys = new Set();
+
+  // 強制追加対象のセット（オプションによって決まる）
+  const PERCEPTION_SKILLS = new Set(['目星', '聞き耳', '図書館']);
+
+  for (const entry of charData.skills) {
+    const key = entry.displayName || entry.name;
+    if (addedSkillKeys.has(key)) continue;
+
+    const forceAdd = options?.showPerceptionSkills && PERCEPTION_SKILLS.has(entry.name);
+    if (entry.isAcquired || forceAdd) {
       acquiredSkills.push(entry);
+      addedSkillKeys.add(key);
     }
   }
 
-  // Step 2: 強制追加（重複排除）
-  const skillNameSet = new Set(acquiredSkills.map(sk => sk.name));
-
-  // 回避の強制追加
-  if (options.showDodge && !skillNameSet.has('回避')) {
+  // Step 2: 回避の強制追加（取得済みでなくても先頭に付ける）
+  if (options?.showDodge && !addedSkillKeys.has('回避')) {
     const dodgeEntry = charData.skills.find(sk => sk.name === '回避');
     if (dodgeEntry) {
-      acquiredSkills.unshift(dodgeEntry); // 先頭に追加
-      skillNameSet.add('回避');
+      acquiredSkills.unshift(dodgeEntry);
+      addedSkillKeys.add('回避');
     }
   }
 
-  // 目星・聞き耳・図書館の強制追加
-  if (options.showPerceptionSkills) {
-    const perceptionSkills = ['目星', '聞き耳', '図書館'];
-    for (const skillName of perceptionSkills) {
-      if (!skillNameSet.has(skillName)) {
-        const entry = charData.skills.find(sk => sk.name === skillName);
-        if (entry) {
-          acquiredSkills.push(entry); // 末尾に追加
-          skillNameSet.add(skillName);
-        }
-      }
-    }
-  }
 
   // Step 3: 各エントリーのフォーマット
   for (const skill of acquiredSkills) {
     lines.push(`${cmd}<=${skill.value} 【${skill.displayName}】`);
 
     // showCombatDamage=true の場合、ダメージ行を追加
-    if (options.showCombatDamage) {
+    if (options?.showCombatDamage) {
       const skillDef = SKILLS.find(sd => sd.name === skill.name);
       if (skillDef && skillDef.damage) {
-        // ダメージダイス + DB（例: "1d3+1d4"）
-        lines.push(`${skillDef.damage}${s.DB} 【${getBaseName(skill.displayName)} ダメージ】`);
+        // DB が +0 の場合は省略、それ以外（+1d4, -1d6 等）は付加する
+        const db = (s.DB && s.DB !== '+0') ? s.DB : '';
+        lines.push(`${skillDef.damage}${db}　${getBaseName(skill.displayName)}ダメージ`);
       }
     }
   }
@@ -131,7 +128,8 @@ export function generateSkillsLines(charData, options) {
  * 初期値技能のチャットパレット文字列を生成する
  */
 export function generateInitialSkillsLines(charData, options) {
-  const cmd = getCmd(options.diceCommand);
+  if (!charData || !Array.isArray(charData.skills)) return '';
+  const cmd = getCmd(options?.diceCommand);
   const lines = [];
 
   // 取得技能のセットを作成して除外
@@ -140,8 +138,8 @@ export function generateInitialSkillsLines(charData, options) {
     if (sk.isAcquired) acquiredSkillNames.add(sk.name);
   }
   // 強制追加される可能性のあるものも除外
-  if (options.showDodge) acquiredSkillNames.add('回避');
-  if (options.showPerceptionSkills) {
+  if (options?.showDodge) acquiredSkillNames.add('回避');
+  if (options?.showPerceptionSkills) {
     acquiredSkillNames.add('目星');
     acquiredSkillNames.add('聞き耳');
     acquiredSkillNames.add('図書館');
@@ -182,7 +180,7 @@ export function getBlockText(charData, options, block) {
   if (content.trim()) {
     if (addHeader && block.title) {
       // ブロックの末尾に空行を入れる（次のブロックとの余白）
-      return `【${block.title}】----------------\n${content.trim()}\n　`;
+      return `【${block.title}】----------------\n${content.trim()}\n　\n　`;
     }
     // カスタムブロックも末尾に空行
     return `${content.trim()}\n　`;

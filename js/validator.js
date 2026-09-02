@@ -92,10 +92,18 @@ export function sanitizeOptions(options) {
     sanitized.tokenSize = Math.round(ts * 10) / 10;
   }
 
-  // chatColor: #rrggbb 形式
+  // chatColorMode: 'default' または 'custom'
+  if (sanitized.chatColorMode !== 'custom' && sanitized.chatColorMode !== 'default') {
+    sanitized.chatColorMode = sanitized.useDefaultColor === false ? 'custom' : 'default';
+  }
+  sanitized.useDefaultColor = sanitized.chatColorMode === 'default';
+
+  // chatColor: #rrggbb 形式 (大文字に正規化)
   const colorPattern = /^#[0-9a-fA-F]{6}$/;
   if (!colorPattern.test(sanitized.chatColor)) {
-    sanitized.chatColor = '#888888';
+    sanitized.chatColor = '#A4C2F4';
+  } else {
+    sanitized.chatColor = sanitized.chatColor.toUpperCase();
   }
 
   return sanitized;

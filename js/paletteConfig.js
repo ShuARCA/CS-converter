@@ -5,13 +5,15 @@
 
 import { getBlockText } from './chatpalette.js';
 
-let blocksState = [
+export const DEFAULT_PALETTE_BLOCKS = [
   { id: 'custom-1', type: 'custom', title: '基本コマンド', content: '1d10\n1d100\nRESB(-)\nCCB<= 【】', visible: true, isExpanded: false, isDeletable: true },
-  { id: 'special_rolls', type: 'special_rolls', title: '特殊ロール', visible: true, isExpanded: false, isDeletable: false },
+  { id: 'special_rolls', type: 'special_rolls', title: '共通ロール', visible: true, isExpanded: false, isDeletable: false },
   { id: 'stats', type: 'stats', title: '能力値×5', visible: true, isExpanded: false, isDeletable: false },
   { id: 'skills', type: 'skills', title: '取得技能', visible: true, isExpanded: false, isDeletable: false },
   { id: 'initial_skills', type: 'initial_skills', title: '初期値技能', visible: true, isExpanded: false, isDeletable: false }
 ];
+
+let blocksState = JSON.parse(JSON.stringify(DEFAULT_PALETTE_BLOCKS));
 
 let dragSrcEl = null;
 
@@ -23,10 +25,36 @@ export function getPaletteBlocks() {
 }
 
 /**
- * 外部からブロック構成を設定する（リセット用など）
+ * プリセット保存用にブロック構成をシリアライズ（isExpandedを除外したディープコピー）
+ */
+export function serializePaletteBlocks() {
+  return blocksState.map(block => ({
+    id: block.id,
+    type: block.type,
+    title: block.title,
+    content: block.content ?? '',
+    visible: block.visible !== false,
+    isDeletable: !!block.isDeletable
+  }));
+}
+
+/**
+ * 外部からブロック構成を設定する（リセット・プリセット復元用など）
  */
 export function setPaletteBlocks(newBlocks) {
-  blocksState = newBlocks;
+  if (!Array.isArray(newBlocks) || newBlocks.length === 0) {
+    blocksState = JSON.parse(JSON.stringify(DEFAULT_PALETTE_BLOCKS));
+    return;
+  }
+  blocksState = newBlocks.map(block => ({
+    id: block.id,
+    type: block.type,
+    title: block.title,
+    content: block.content ?? '',
+    visible: block.visible !== false,
+    isExpanded: false,
+    isDeletable: !!block.isDeletable
+  }));
 }
 
 /**
@@ -63,7 +91,7 @@ export function renderPaletteBuilder(charData, options, onUpdate) {
   blocksState.forEach((block, index) => {
     if (!block.visible) return; // 非表示のものはDOMに描画しない（設定UIと統合する場合は描画してグレーアウト等にする手もあるが、今は削除/追加の挙動に近いため描画しない）
     // 待って。初期値技能などはチェックボックスと連動するため、非表示なら描画しない。
-    
+
     const blockEl = document.createElement('div');
     blockEl.className = `cp-block ${block.isExpanded ? 'is-expanded' : ''}`;
     blockEl.draggable = true;
@@ -150,7 +178,7 @@ export function renderPaletteBuilder(charData, options, onUpdate) {
     blockEl.addEventListener('dragstart', handleDragStart);
     blockEl.addEventListener('dragover', handleDragOver);
     blockEl.addEventListener('drop', handleDrop);
-    blockEl.addEventListener('dragend', function(e) { handleDragEnd.call(this, e, onUpdate); });
+    blockEl.addEventListener('dragend', function (e) { handleDragEnd.call(this, e, onUpdate); });
 
     container.appendChild(blockEl);
   });
@@ -178,13 +206,13 @@ export function addCustomBlock(onUpdate) {
 function moveBlock(currentIndex, direction, onUpdate) {
   const targetIndex = currentIndex + direction;
   if (targetIndex < 0 || targetIndex >= blocksState.length) return;
-  
+
   // 入れ替え先が非表示ブロックの場合はさらにスキップする
   let actualTarget = targetIndex;
   while (actualTarget >= 0 && actualTarget < blocksState.length && !blocksState[actualTarget].visible) {
     actualTarget += direction;
   }
-  
+
   if (actualTarget >= 0 && actualTarget < blocksState.length) {
     const temp = blocksState[currentIndex];
     blocksState[currentIndex] = blocksState[actualTarget];
@@ -216,14 +244,14 @@ function handleDragStart(e) {
   lastDragOverElement = null;
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', this.dataset.index);
-  
+
   // ドラッグ元を半透明にする（setTimeoutでゴースト画像には適用されないようにする）
   setTimeout(() => this.classList.add('dragging'), 0);
 }
 
 function handleDragOver(e) {
   if (e.preventDefault) e.preventDefault(); // 必須
-  
+
   if (this === dragSrcEl) {
     return false; // 自分自身の上では何もしない
   }
@@ -231,12 +259,12 @@ function handleDragOver(e) {
   const bounding = this.getBoundingClientRect();
   const offset = e.clientY - bounding.top;
   const isBottom = offset > bounding.height / 2;
-  
+
   // 位置が変わった場合のみDOMを動かす
   if (lastDragOverElement !== this || lastIsBottom !== isBottom) {
     lastDragOverElement = this;
     lastIsBottom = isBottom;
-    
+
     // DOMを視覚的に移動させてプレビューする
     const parent = this.parentNode;
     if (isBottom) {
@@ -245,7 +273,7 @@ function handleDragOver(e) {
       parent.insertBefore(dragSrcEl, this);
     }
   }
-  
+
   e.dataTransfer.dropEffect = 'move';
   return false;
 }
@@ -256,10 +284,10 @@ function handleDrop(e) {
   if (dragSrcEl && lastDragOverElement && dragSrcEl !== lastDragOverElement) {
     const srcIndex = parseInt(dragSrcEl.dataset.index, 10);
     const destIndex = parseInt(lastDragOverElement.dataset.index, 10);
-    
+
     // 配列の要素を移動
     const item = blocksState.splice(srcIndex, 1)[0];
-    
+
     let adjustedDest = destIndex;
     if (srcIndex < destIndex) {
       adjustedDest--;
@@ -267,10 +295,10 @@ function handleDrop(e) {
     if (lastIsBottom) {
       adjustedDest++;
     }
-    
+
     blocksState.splice(adjustedDest, 0, item);
   }
-  
+
   return false;
 }
 
@@ -278,7 +306,7 @@ function handleDragEnd(e, onUpdate) {
   this.classList.remove('dragging');
   dragSrcEl = null;
   lastDragOverElement = null;
-  
+
   // ドロップ成功/失敗に関わらず、現在の blocksState からUIとJSONを完全再描画する
   // 失敗した場合は元の順序に戻り、成功した場合は新しい順序で確定する
   onUpdate(true);

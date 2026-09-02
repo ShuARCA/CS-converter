@@ -62,9 +62,10 @@ export function buildCocofoliaJson(charData, options, chatPalette) {
     data.iconUrl = charData.iconUrl;
   }
 
-  // color フィールド: useDefaultColor=false の場合のみ追加
-  // useDefaultColor=true の場合はキーごと省略する
-  if (!options.useDefaultColor) {
+  // color フィールド: chatColorMode === 'custom' (または useDefaultColor === false) の場合のみ追加
+  // デフォルトの場合はキーごと省略する
+  const isCustomColor = options.chatColorMode !== undefined ? options.chatColorMode === 'custom' : !options.useDefaultColor;
+  if (isCustomColor && options.chatColor) {
     data.color = options.chatColor;
   }
 

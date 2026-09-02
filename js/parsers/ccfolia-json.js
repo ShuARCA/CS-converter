@@ -13,7 +13,12 @@ import {
   buildSkillEntries
 } from './parser-utils.js';
 
-const COMMAND_PATTERN = /^(?:CCB|CC|1d100)<=(\d+)\s+【(.+?)】/;
+const COMMAND_PATTERN = /^(?:CCB|CC|1D100)<=(\d+)\s+(?:【(.+?)】|([^\s【】\r\n]+))/i;
+
+// 除外対象のシステム行
+const IGNORE_SKILL_NAMES = new Set([
+  'アイデア', '幸運', '知識', 'SAN値チェック', '正気度ロール', '不定リセット', '正気度',
+]);
 
 /**
  * ココフォリア駒JSONオブジェクトから CharacterData に変換
@@ -36,12 +41,10 @@ export async function parseCcfoliaJson(json) {
   charData.externalUrl = d.externalUrl || '';
   charData.originalColor = d.color || '';
 
-  // パラメータ(STR, CON等)の抽出
+  // パラメータ(STR, CON等)の抽出（DBはcalcDBで常に再計算するため取得しない）
   if (Array.isArray(d.params)) {
     for (const p of d.params) {
-      if (p.label === 'DB') {
-        charData.stats.DB = p.value;
-      } else if (p.label in charData.stats) {
+      if (p.label !== 'DB' && p.label in charData.stats) {
         charData.stats[p.label] = parseInt(p.value, 10) || 0;
       }
     }
@@ -75,10 +78,12 @@ export async function parseCcfoliaJson(json) {
       const match = line.match(COMMAND_PATTERN);
       if (match) {
         const valueStr = match[1];
-        const displayName = match[2];
+        const displayName = (match[2] || match[3] || '').trim();
 
-        // 「アイデア」「幸運」「知識」などはステータスや定数計算であり技能ではないため除外
-        if (['アイデア', '幸運', '知識', 'SAN値チェック', '正気度ロール'].includes(displayName)) {
+        if (!displayName) continue;
+
+        // システムロール（アイデア、幸運、知識、能力値×5、ダメージ等）は除外
+        if (IGNORE_SKILL_NAMES.has(displayName) || displayName.includes('×5') || displayName.includes('ダメージ')) {
           continue;
         }
 
