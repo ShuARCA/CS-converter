@@ -7,6 +7,14 @@
 
 import { serializePaletteBlocks, setPaletteBlocks, DEFAULT_PALETTE_BLOCKS } from './paletteConfig.js';
 import { DEFAULT_OPTIONS } from './constants.js';
+import { escapeHtml, createRemoveBtn } from './utils.js';
+import {
+  collectCustomStatuses,
+  collectCustomParams,
+  collectSpecialRolls,
+  collectStatTimes5,
+  applyOptionsToUI,
+} from './optionsCollector.js';
 
 export const STORAGE_KEY_PRESETS = 'ccfolia_cs_converter_presets_v1';
 export const STORAGE_KEY_LAST_INDEX = 'ccfolia_cs_converter_last_preset_idx';
@@ -59,18 +67,9 @@ export function collectPresetData() {
   const memoEl = document.getElementById('preview-memo');
   const memo = memoEl ? memoEl.value : '';
 
-  // カスタムステータス
-  const customStatuses = Array.from(document.querySelectorAll('.custom-status-row')).map(row => ({
-    label: row.querySelector('.status-label')?.value || '',
-    value: parseInt(row.querySelector('.status-val')?.value, 10) || 0,
-    max: parseInt(row.querySelector('.status-max')?.value, 10) || 0,
-  })).filter(st => st.label.trim() !== '');
-
-  // カスタムパラメータ
-  const customParams = Array.from(document.querySelectorAll('.custom-param-item')).map(item => ({
-    label: item.querySelector('.param-label')?.value || '',
-    value: item.querySelector('.param-val')?.value || '0',
-  })).filter(p => p.label.trim() !== '');
+  // カスタムステータス・パラメータ（optionsCollector の関数を利用）
+  const customStatuses = collectCustomStatuses({ parseNumbers: true, filterEmpty: true });
+  const customParams = collectCustomParams({ filterEmpty: true });
 
   // 駒サイズ・トグル
   const tokenSize = parseFloat(document.getElementById('preview-size')?.value) || 4;
@@ -88,24 +87,10 @@ export function collectPresetData() {
   const showPerceptionSkills = document.getElementById('opt-show-perception-skills')?.checked ?? true;
   const showCombatDamage = document.getElementById('opt-show-combat-damage')?.checked ?? true;
 
-  // 特殊ロール
-  const showSpecialRolls = {};
-  document.querySelectorAll('.opt-special-roll').forEach(el => {
-    const roll = el.dataset.roll;
-    if (roll) {
-      showSpecialRolls[roll] = el.checked;
-    }
-  });
-
+  // 特殊ロール・能力値×5
+  const showSpecialRolls = collectSpecialRolls();
   const showStatTimes5All = document.getElementById('opt-show-stat-times5-all')?.checked ?? false;
-
-  const showStatTimes5 = {};
-  document.querySelectorAll('.opt-stat-times5').forEach(el => {
-    const stat = el.dataset.stat;
-    if (stat) {
-      showStatTimes5[stat] = el.checked;
-    }
-  });
+  const showStatTimes5 = collectStatTimes5();
 
   const chatColorMode = document.querySelector('input[name="chatColorMode"]:checked')?.value || 'default';
   const chatColor = document.getElementById('opt-chat-color')?.value || '#A4C2F4';
@@ -188,9 +173,7 @@ export function applyPresetDataToUI(presetData, bindDynamicRowListeners) {
           <input type="text" class="status-label editable-field" placeholder="ラベル" value="${escapeHtml(st.label || '')}">
           <input type="number" class="status-val editable-field" value="${st.value ?? 0}">
           <input type="number" class="status-max editable-field" value="${st.max ?? 0}">
-          <button type="button" class="ccfolia-btn-icon ccfolia-btn-icon--remove" title="削除">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+          ${createRemoveBtn()}
         `;
         if (bindDynamicRowListeners) {
           bindDynamicRowListeners(div);
@@ -211,9 +194,7 @@ export function applyPresetDataToUI(presetData, bindDynamicRowListeners) {
         div.innerHTML = `
           <input type="text" class="param-label editable-field" placeholder="ラベル" value="${escapeHtml(p.label || '')}">
           <input type="text" class="param-val editable-field" value="${escapeHtml(String(p.value ?? '0'))}">
-          <button type="button" class="ccfolia-btn-icon ccfolia-btn-icon--remove" title="削除">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+          ${createRemoveBtn()}
         `;
         if (bindDynamicRowListeners) {
           bindDynamicRowListeners(div);
@@ -229,55 +210,8 @@ export function applyPresetDataToUI(presetData, bindDynamicRowListeners) {
     if (radio) radio.checked = true;
   }
 
-  // 7. 各種オプション
-  const opts = data.options || {};
-  setCheckboxChecked('opt-show-initial-skills', opts.showInitialSkills ?? true);
-  setCheckboxChecked('opt-show-dodge', opts.showDodge ?? true);
-  setCheckboxChecked('opt-show-perception-skills', opts.showPerceptionSkills ?? true);
-  setCheckboxChecked('opt-show-combat-damage', opts.showCombatDamage ?? true);
-
-  if (opts.showSpecialRolls) {
-    document.querySelectorAll('.opt-special-roll').forEach(el => {
-      const roll = el.dataset.roll;
-      if (roll && opts.showSpecialRolls[roll] !== undefined) {
-        el.checked = !!opts.showSpecialRolls[roll];
-      }
-    });
-  }
-
-  const allStatTimes5 = opts.showStatTimes5All ?? false;
-  setCheckboxChecked('opt-show-stat-times5-all', allStatTimes5);
-
-  const individualStatTimes5 = document.querySelectorAll('.opt-stat-times5');
-  individualStatTimes5.forEach(el => {
-    const stat = el.dataset.stat;
-    el.disabled = allStatTimes5;
-    if (allStatTimes5) {
-      el.checked = true;
-    } else if (stat && opts.showStatTimes5 && opts.showStatTimes5[stat] !== undefined) {
-      el.checked = !!opts.showStatTimes5[stat];
-    }
-  });
-
-  const colorMode = opts.chatColorMode || (opts.useDefaultColor === false ? 'custom' : 'default');
-  const radio = document.querySelector(`input[name="chatColorMode"][value="${colorMode}"]`);
-  if (radio) radio.checked = true;
-
-  const chatColorHex = (opts.chatColor || '#A4C2F4').toUpperCase();
-  const colorInput = document.getElementById('opt-chat-color');
-  if (colorInput) {
-    colorInput.value = chatColorHex;
-  }
-  const swatchEl = document.getElementById('chat-color-swatch');
-  if (swatchEl) {
-    swatchEl.style.backgroundColor = chatColorHex;
-  }
-  const hexTextEl = document.getElementById('chat-color-hex');
-  if (hexTextEl) {
-    hexTextEl.textContent = chatColorHex;
-  }
-  // カスタムイベントでカラーピッカーインスタンスに通知可能にする
-  window.dispatchEvent(new CustomEvent('presetColorApplied', { detail: { color: chatColorHex } }));
+  // 7. 各種オプション（optionsCollector に委譲）
+  applyOptionsToUI(data.options || {});
 
   // 8. チャットパレット構成
   if (Array.isArray(data.paletteBlocks) && data.paletteBlocks.length > 0) {
@@ -515,22 +449,3 @@ export function clearLastPresetIndex() {
   }
 }
 
-// ────────────────────────────────────────────
-// ヘルパー
-// ────────────────────────────────────────────
-
-function setCheckboxChecked(id, checked) {
-  const el = document.getElementById(id);
-  if (el && el.type === 'checkbox') {
-    el.checked = !!checked;
-  }
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}

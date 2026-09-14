@@ -31,10 +31,10 @@
           <div class="url-input-group">
             <textarea id="url-input" class="url-input"
               placeholder="キャラクターシートのURL、またはココフォリア駒データ(JSON)を貼り付けてください&#10;例: https://charasheet.vampire-blood.net/...&#10;例: { &quot;kind&quot;: &quot;character&quot;, ... }"
-              rows="4" required autocomplete="off"></textarea>
+              rows="4" required autocomplete="off" aria-label="キャラクターシートURLまたはココフォリア駒JSON"></textarea>
             <button type="button" id="btn-convert" class="btn btn--primary">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+                stroke-linecap="round" stroke-linejoin="round" class="btn-icon" aria-hidden="true" focusable="false">
                 <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
               </svg>
               <span class="btn-text">変換する</span>
@@ -45,9 +45,9 @@
           </div>
 
           <!-- エラー表示エリア -->
-          <div id="error-banner" class="error-banner">
+          <div id="error-banner" class="error-banner" role="alert">
             <svg class="error-banner__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -65,18 +65,19 @@
             <h2 class="step-card__title">プレビュー &amp; コピー</h2>
           </div>
           <div class="step-card__header-actions">
-            <button type="button" id="btn-preset" class="btn btn--secondary" title="プリセット／テンプレート管理">
+            <button type="button" id="btn-preset" class="btn btn--secondary" title="プリセット／テンプレート管理"
+              aria-label="プリセット／テンプレート管理">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+                stroke-linecap="round" stroke-linejoin="round" class="btn-icon" aria-hidden="true" focusable="false">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
                 <polyline points="17 21 17 13 7 13 7 21" />
                 <polyline points="7 3 7 8 15 8" />
               </svg>
               <span>プリセット</span>
             </button>
-            <button type="button" id="btn-copy" class="btn btn--primary">
+            <button type="button" id="btn-copy" class="btn btn--primary" aria-label="生成したココフォリア駒JSONをクリップボードにコピー">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+                stroke-linecap="round" stroke-linejoin="round" class="btn-icon" aria-hidden="true" focusable="false">
                 <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
                 <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
               </svg>
@@ -86,10 +87,10 @@
         </div>
         <div class="step-card__content">
           <!-- 警告表示エリア (isPartial=trueのとき表示) -->
-          <div id="warning-banner" class="warning-banner">
+          <div id="warning-banner" class="warning-banner" role="alert">
             <div class="warning-banner__title">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
                 <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
                 <line x1="12" y1="9" x2="12" y2="13" />
                 <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -113,47 +114,47 @@
                   <div class="ccfolia-row">
                     <div class="ccfolia-icon-placeholder">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                         <circle cx="12" cy="7" r="4" />
                       </svg>
                     </div>
                     <div class="ccfolia-input-group flex-1">
-                      <label>名前</label>
+                      <label for="preview-name">名前</label>
                       <input type="text" id="preview-name" class="editable-field" value="-">
                     </div>
                     <div class="ccfolia-input-group flex-1">
-                      <label>イニシアティブ</label>
+                      <label for="preview-initiative">イニシアティブ</label>
                       <input type="number" id="preview-initiative" class="editable-field" value="0">
                     </div>
                   </div>
 
                   <!-- メモ -->
                   <div class="ccfolia-input-group mt-3">
-                    <label>キャラクターメモ</label>
+                    <label for="preview-memo">キャラクターメモ</label>
                     <textarea id="preview-memo" class="editable-field" rows="4">-</textarea>
                   </div>
 
                   <!-- コマサイズ等 -->
                   <div class="ccfolia-row mt-3">
                     <div class="ccfolia-input-group flex-1">
-                      <label>駒サイズ</label>
+                      <label for="preview-size">駒サイズ</label>
                       <input type="number" id="preview-size" class="editable-field" value="4" min="1" max="100"
                         step="1">
                     </div>
                     <div class="ccfolia-input-group flex-1">
-                      <label>x</label>
+                      <label for="preview-x">x</label>
                       <input type="text" id="preview-x" class="readonly-field" value="-48" readonly tabindex="-1">
                     </div>
                     <div class="ccfolia-input-group flex-1">
-                      <label>y</label>
+                      <label for="preview-y">y</label>
                       <input type="text" id="preview-y" class="readonly-field" value="-48" readonly tabindex="-1">
                     </div>
                   </div>
 
                   <!-- 参照URL -->
                   <div class="ccfolia-input-group mt-3 pb-3 border-bottom">
-                    <label>参照URL</label>
+                    <label for="preview-url">参照URL</label>
                     <input type="text" id="preview-url" class="editable-field" value="">
                   </div>
 
@@ -161,9 +162,10 @@
                   <div class="ccfolia-section-header mt-3">
                     <span>立ち絵・差分</span>
                     <div class="ccfolia-section-actions">
-                      <button type="button" id="btn-add-face" class="ccfolia-btn-icon" title="差分を追加">
+                      <button type="button" id="btn-add-face" class="ccfolia-btn-icon" title="差分を追加" aria-label="差分を追加">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                          focusable="false">
                           <line x1="12" y1="5" x2="12" y2="19" />
                           <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
@@ -180,9 +182,11 @@
                   <div class="ccfolia-section-header mt-3">
                     <span>ステータス</span>
                     <div class="ccfolia-section-actions">
-                      <button type="button" id="btn-add-status" class="ccfolia-btn-icon" title="ステータスを追加">
+                      <button type="button" id="btn-add-status" class="ccfolia-btn-icon" title="ステータスを追加"
+                        aria-label="ステータスを追加">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                          focusable="false">
                           <line x1="12" y1="5" x2="12" y2="19" />
                           <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
@@ -195,10 +199,10 @@
                         <label>HP</label>
                       </div>
                       <div class="ccfolia-status-row-item">
-                        <input type="number" id="preview-hp-val" class="editable-field" value="0">
+                        <input type="number" id="preview-hp-val" class="editable-field" value="0" aria-label="HP 現在値">
                       </div>
                       <div class="ccfolia-status-row-item">
-                        <input type="number" id="preview-hp-max" class="editable-field" value="0">
+                        <input type="number" id="preview-hp-max" class="editable-field" value="0" aria-label="HP 最大値">
                       </div>
                     </div>
                     <div class="ccfolia-status-row">
@@ -206,10 +210,10 @@
                         <label>MP</label>
                       </div>
                       <div class="ccfolia-status-row-item">
-                        <input type="number" id="preview-mp-val" class="editable-field" value="0">
+                        <input type="number" id="preview-mp-val" class="editable-field" value="0" aria-label="MP 現在値">
                       </div>
                       <div class="ccfolia-status-row-item">
-                        <input type="number" id="preview-mp-max" class="editable-field" value="0">
+                        <input type="number" id="preview-mp-max" class="editable-field" value="0" aria-label="MP 最大値">
                       </div>
                     </div>
                     <div class="ccfolia-status-row">
@@ -217,10 +221,10 @@
                         <label>SAN</label>
                       </div>
                       <div class="ccfolia-status-row-item">
-                        <input type="number" id="preview-san-val" class="editable-field" value="0">
+                        <input type="number" id="preview-san-val" class="editable-field" value="0" aria-label="SAN 現在値">
                       </div>
                       <div class="ccfolia-status-row-item">
-                        <input type="number" id="preview-san-max" class="editable-field" value="0">
+                        <input type="number" id="preview-san-max" class="editable-field" value="0" aria-label="SAN 最大値">
                       </div>
                     </div>
                   </div>
@@ -232,9 +236,11 @@
                   <div class="ccfolia-section-header mt-3">
                     <span>パラメータ</span>
                     <div class="ccfolia-section-actions">
-                      <button type="button" id="btn-add-param" class="ccfolia-btn-icon" title="パラメータを追加">
+                      <button type="button" id="btn-add-param" class="ccfolia-btn-icon" title="パラメータを追加"
+                        aria-label="パラメータを追加">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                          focusable="false">
                           <line x1="12" y1="5" x2="12" y2="19" />
                           <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
@@ -243,31 +249,40 @@
                   </div>
                   <div class="ccfolia-params-grid" id="preview-params-fixed">
                     <div class="ccfolia-param-item">
-                      <label>STR</label><input type="number" id="preview-param-STR" class="editable-field" value="0">
+                      <label for="preview-param-STR">STR</label><input type="number" id="preview-param-STR"
+                        class="editable-field" value="0">
                     </div>
                     <div class="ccfolia-param-item">
-                      <label>CON</label><input type="number" id="preview-param-CON" class="editable-field" value="0">
+                      <label for="preview-param-CON">CON</label><input type="number" id="preview-param-CON"
+                        class="editable-field" value="0">
                     </div>
                     <div class="ccfolia-param-item">
-                      <label>POW</label><input type="number" id="preview-param-POW" class="editable-field" value="0">
+                      <label for="preview-param-POW">POW</label><input type="number" id="preview-param-POW"
+                        class="editable-field" value="0">
                     </div>
                     <div class="ccfolia-param-item">
-                      <label>DEX</label><input type="number" id="preview-param-DEX" class="editable-field" value="0">
+                      <label for="preview-param-DEX">DEX</label><input type="number" id="preview-param-DEX"
+                        class="editable-field" value="0">
                     </div>
                     <div class="ccfolia-param-item">
-                      <label>APP</label><input type="number" id="preview-param-APP" class="editable-field" value="0">
+                      <label for="preview-param-APP">APP</label><input type="number" id="preview-param-APP"
+                        class="editable-field" value="0">
                     </div>
                     <div class="ccfolia-param-item">
-                      <label>SIZ</label><input type="number" id="preview-param-SIZ" class="editable-field" value="0">
+                      <label for="preview-param-SIZ">SIZ</label><input type="number" id="preview-param-SIZ"
+                        class="editable-field" value="0">
                     </div>
                     <div class="ccfolia-param-item">
-                      <label>INT</label><input type="number" id="preview-param-INT" class="editable-field" value="0">
+                      <label for="preview-param-INT">INT</label><input type="number" id="preview-param-INT"
+                        class="editable-field" value="0">
                     </div>
                     <div class="ccfolia-param-item">
-                      <label>EDU</label><input type="number" id="preview-param-EDU" class="editable-field" value="0">
+                      <label for="preview-param-EDU">EDU</label><input type="number" id="preview-param-EDU"
+                        class="editable-field" value="0">
                     </div>
                     <div class="ccfolia-param-item">
-                      <label>DB</label><input type="text" id="preview-param-DB" class="editable-field" value="+0">
+                      <label for="preview-param-DB">DB</label><input type="text" id="preview-param-DB"
+                        class="editable-field" value="+0">
                     </div>
                   </div>
                   <div class="ccfolia-params-grid pb-3 border-bottom mt-0" id="preview-params-custom">
@@ -281,7 +296,7 @@
                       <span class="ccfolia-toggle-desc">秘匿NPC・敵キャラクターなど</span>
                     </div>
                     <label class="ccfolia-switch">
-                      <input type="checkbox" id="preview-secret" checked>
+                      <input type="checkbox" id="preview-secret" checked aria-label="ステータスを非公開にする">
                       <span class="ccfolia-slider"></span>
                     </label>
                   </div>
@@ -291,7 +306,7 @@
                       <span class="ccfolia-toggle-desc">駒自体を立ち絵のように見せる場合</span>
                     </div>
                     <label class="ccfolia-switch">
-                      <input type="checkbox" id="preview-invisible" checked>
+                      <input type="checkbox" id="preview-invisible" checked aria-label="発言時キャラクターを表示しない">
                       <span class="ccfolia-slider"></span>
                     </label>
                   </div>
@@ -301,7 +316,7 @@
                       <span class="ccfolia-toggle-desc">GM駒などステータス管理が必要ないもの</span>
                     </div>
                     <label class="ccfolia-switch">
-                      <input type="checkbox" id="preview-hide-status">
+                      <input type="checkbox" id="preview-hide-status" aria-label="盤面キャラクター一覧に表示しない">
                       <span class="ccfolia-slider"></span>
                     </label>
                   </div>
@@ -405,15 +420,15 @@
                             <span>APP</span>
                           </label>
                           <label class="option-item">
-                            <input type="checkbox" class="opt-stat-times5" data-stat="SIZ" checked>
+                            <input type="checkbox" class="opt-stat-times5" data-stat="SIZ">
                             <span>SIZ</span>
                           </label>
                           <label class="option-item">
-                            <input type="checkbox" class="opt-stat-times5" data-stat="INT" checked>
+                            <input type="checkbox" class="opt-stat-times5" data-stat="INT">
                             <span>INT</span>
                           </label>
                           <label class="option-item">
-                            <input type="checkbox" class="opt-stat-times5" data-stat="EDU" checked>
+                            <input type="checkbox" class="opt-stat-times5" data-stat="EDU">
                             <span>EDU</span>
                           </label>
                         </div>
@@ -433,7 +448,7 @@
                                 <input type="radio" name="chatColorMode" value="custom">
                                 <span>カスタム</span>
                                 <button type="button" id="btn-chat-color-trigger" class="color-trigger-btn"
-                                  title="チャットカラーを選択">
+                                  title="チャットカラーを選択" aria-label="チャットカラーを選択">
                                   <span class="color-trigger-swatch" id="chat-color-swatch"
                                     style="background-color: #A4C2F4;"></span>
                                   <span class="color-trigger-hex" id="chat-color-hex">#A4C2F4</span>
@@ -450,9 +465,10 @@
                   <!-- チャットパレット構成 (ビルダーUI) -->
                   <div class="ccfolia-section-header mt-3">
                     <span>チャットパレット</span>
-                    <button type="button" id="btn-add-custom-block" class="ccfolia-btn-small" title="カスタムブロックを追加">
+                    <button type="button" id="btn-add-custom-block" class="ccfolia-btn-small" title="カスタムブロックを追加"
+                      aria-label="カスタムブロックを追加">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
                         <line x1="12" y1="5" x2="12" y2="19" />
                         <line x1="5" y1="12" x2="19" y2="12" />
                       </svg>
@@ -464,7 +480,7 @@
                       <!-- JSで動的にブロックをレンダリング -->
                     </div>
                     <!-- 内部保存用の隠しtextarea -->
-                    <textarea id="preview-chatpalette" class="hidden"></textarea>
+                    <textarea id="preview-chatpalette" class="hidden" aria-hidden="true"></textarea>
                   </div>
 
                 </div><!-- /.preview-col--right -->
@@ -487,7 +503,7 @@
     </footer>
   </div>
 
-  <div id="loading-overlay" class="loading-overlay">
+  <div id="loading-overlay" class="loading-overlay" role="status" aria-live="polite">
     <div class="loading-spinner">
       <div class="loading-spinner__dots">
         <div class="loading-spinner__dot"></div>
@@ -499,21 +515,23 @@
   </div>
 
   <!-- プリセット管理モーダル -->
-  <div id="preset-modal" class="modal-overlay" aria-hidden="true">
+  <div id="preset-modal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true"
+    aria-labelledby="preset-modal-title">
     <div class="modal-card">
       <div class="modal-header">
         <div class="modal-title-group">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" class="modal-title-icon">
+            stroke-linecap="round" stroke-linejoin="round" class="modal-title-icon" aria-hidden="true"
+            focusable="false">
             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
             <polyline points="17 21 17 13 7 13 7 21" />
             <polyline points="7 3 7 8 15 8" />
           </svg>
-          <h3 class="modal-title">プリセット／テンプレート管理</h3>
+          <h3 id="preset-modal-title" class="modal-title">プリセット／テンプレート管理</h3>
         </div>
-        <button type="button" id="btn-preset-close" class="modal-close-btn" title="閉じる">
+        <button type="button" id="btn-preset-close" class="modal-close-btn" title="閉じる" aria-label="閉じる">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
@@ -533,7 +551,7 @@
   <!-- グローバルカラーピッカーポップオーバー -->
   <div id="global-color-picker-container" class="color-picker-popover" aria-hidden="true"></div>
 
-  <div id="toast-container"></div>
+  <div id="toast-container" role="region" aria-live="polite" aria-label="通知"></div>
   <script type="module" src="js/main.js"></script>
 </body>
 

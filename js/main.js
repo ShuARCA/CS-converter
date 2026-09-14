@@ -12,6 +12,7 @@ import { parse } from './parsers/index.js';
 import { buildChatPalette } from './chatpalette.js';
 import { buildCocofoliaJson } from './converter.js';
 import { getPaletteBlocks, renderPaletteBuilder, addCustomBlock } from './paletteConfig.js';
+import { buildSkillEntries } from './parsers/parser-utils.js';
 import {
   getLastPresetIndex,
   loadPresetFromSlot,
@@ -24,101 +25,41 @@ import {
   showError,
   showPreview,
   hidePreview,
-  showToast
+  showToast,
 } from './ui.js';
-
-// アプリケーションの状態管理
-const state = {
-  currentJsonStr: '',
-  characterName: '',
-  charData: null // パース済みデータを保持
-};
+import { appState } from './state.js';
+import { collectOptions } from './optionsCollector.js';
+import { createRemoveBtn } from './utils.js';
 
 // カラーピッカーインスタンス
 let colorPickerInstance = null;
 
 /**
- * 画面上の入力要素からオプションオブジェクトを収集する
- * @returns {object} Optionsオブジェクト
+ * 初回ロード用の空キャラクターデータ（全技能初期値・取得技能0件）を生成する
+ * @returns {object}
  */
-function collectOptions() {
-  const diceCommandEl = document.querySelector('input[name="diceCommand"]:checked');
-  const diceCommand = diceCommandEl ? diceCommandEl.value : 'CCB';
+function createInitialCharacterData() {
+  const stats = {
+    STR: 0, CON: 0, POW: 0, DEX: 0, APP: 0, SIZ: 0, INT: 0, EDU: 0,
+    currentHP: 0, maxHP: 0, currentMP: 0, maxMP: 0,
+    initialSAN: 0, currentSAN: 0,
+    idea: 0, luck: 0, know: 0,
+    DB: '+0',
+  };
 
-  const showInitialSkills = document.getElementById('opt-show-initial-skills').checked;
-  const showDodge = document.getElementById('opt-show-dodge').checked;
-  const showPerceptionSkills = document.getElementById('opt-show-perception-skills').checked;
-  const showCombatDamage = document.getElementById('opt-show-combat-damage').checked;
-
-  // 特殊ロールの収集
-  const showSpecialRolls = {};
-  document.querySelectorAll('.opt-special-roll').forEach(el => {
-    const roll = el.dataset.roll;
-    if (roll) {
-      showSpecialRolls[roll] = el.checked;
-    }
-  });
-
-  const showStatTimes5All = document.getElementById('opt-show-stat-times5-all').checked;
-
-  // 個別能力値×5の収集
-  const showStatTimes5 = {};
-  document.querySelectorAll('.opt-stat-times5').forEach(el => {
-    const stat = el.dataset.stat;
-    if (stat) {
-      showStatTimes5[stat] = el.checked;
-    }
-  });
-
-  const hideStatus = document.getElementById('preview-secret')?.checked ?? true;
-  const invisible = document.getElementById('preview-invisible')?.checked ?? false;
-  const hideStatusFromBoard = document.getElementById('preview-hide-status')?.checked ?? false;
-
-  const tokenSize = parseFloat(document.getElementById('preview-size')?.value) || 4;
-  const x = tokenSize * -12;
-  const y = tokenSize * -12;
-
-  const chatColorMode = document.querySelector('input[name="chatColorMode"]:checked')?.value || 'default';
-  const useDefaultColor = chatColorMode === 'default';
-  const chatColor = document.getElementById('opt-chat-color')?.value || '#A4C2F4';
-
-  const customStatuses = Array.from(document.querySelectorAll('.custom-status-row')).map(row => ({
-    label: row.querySelector('.status-label').value,
-    value: row.querySelector('.status-val').value,
-    max: row.querySelector('.status-max').value
-  }));
-
-  const customParams = Array.from(document.querySelectorAll('.custom-param-item')).map(item => ({
-    label: item.querySelector('.param-label').value,
-    value: item.querySelector('.param-val').value
-  }));
-
-  const customFaces = Array.from(document.querySelectorAll('.ccfolia-face-item')).map(item => ({
-    name: item.querySelector('.face-label').value,
-    iconUrl: ''
-  }));
+  const skills = buildSkillEntries(new Map(), stats);
 
   return {
-    diceCommand,
-    showInitialSkills,
-    showDodge,
-    showPerceptionSkills,
-    showCombatDamage,
-    showSpecialRolls,
-    showStatTimes5All,
-    showStatTimes5,
-    hideStatus,
-    invisible,
-    hideStatusFromBoard,
-    tokenSize,
-    x,
-    y,
-    chatColorMode,
-    useDefaultColor,
-    chatColor,
-    customStatuses,
-    customParams,
-    customFaces
+    name: '-',
+    memo: '-',
+    initiative: 0,
+    externalUrl: '',
+    stats,
+    skills,
+    isPartial: false,
+    parseWarnings: [],
+    sourceUrl: '',
+    sourceType: 'initial',
   };
 }
 
@@ -126,8 +67,8 @@ function collectOptions() {
  * プレビューUI上の入力を state.charData に同期する
  */
 function syncDataFromPreview() {
-  if (!state.charData) return;
-  const s = state.charData.stats;
+  if (!appState.charData) return;
+  const s = appState.charData.stats;
   if (!s) return;
 
   const getVal = (id) => {
@@ -138,13 +79,13 @@ function syncDataFromPreview() {
   };
 
   const nameInput = document.getElementById('preview-name');
-  if (nameInput) state.charData.name = nameInput.value;
+  if (nameInput) appState.charData.name = nameInput.value;
 
   const initInput = document.getElementById('preview-initiative');
-  if (initInput) state.charData.initiative = getVal('preview-initiative');
+  if (initInput) appState.charData.initiative = getVal('preview-initiative');
 
   const urlInput = document.getElementById('preview-url');
-  if (urlInput) state.charData.externalUrl = urlInput.value;
+  if (urlInput) appState.charData.externalUrl = urlInput.value;
 
   s.currentHP = getVal('preview-hp-val');
   s.maxHP = getVal('preview-hp-max');
@@ -164,7 +105,7 @@ function syncDataFromPreview() {
 
   const memoInput = document.getElementById('preview-memo');
   if (memoInput) {
-    state.charData.memo = memoInput.value;
+    appState.charData.memo = memoInput.value;
   }
 }
 
@@ -177,12 +118,12 @@ const requestRebuild = () => {
 };
 
 /**
- * 現在の state.charData とオプションをもとに再ビルドし、画面を更新する
+ * 現在の appState.charData とオプションをもとに再ビルドし、画面を更新する
  * @param {boolean} redrawBuilder - trueの場合、チャットパレットビルダーUIも再描画する
  * @param {boolean} isInitial - 初回ロード時かどうか
  */
 function rebuildOutput(redrawBuilder = true, isInitial = false) {
-  if (!state.charData) return;
+  if (!appState.charData) return;
 
   try {
     // JSON出力等に影響する値（チャットパレット計算に使用する能力値など）を同期
@@ -192,18 +133,18 @@ function rebuildOutput(redrawBuilder = true, isInitial = false) {
     const rawOptions = collectOptions();
     const sanitizedOptions = sanitizeOptions(rawOptions);
 
-    const chatPalette = buildChatPalette(state.charData, sanitizedOptions, getPaletteBlocks());
-    const jsonObj = buildCocofoliaJson(state.charData, sanitizedOptions, chatPalette);
-    state.currentJsonStr = JSON.stringify(jsonObj, null, 2);
+    const chatPalette = buildChatPalette(appState.charData, sanitizedOptions, getPaletteBlocks());
+    const jsonObj = buildCocofoliaJson(appState.charData, sanitizedOptions, chatPalette);
+    appState.currentJsonStr = JSON.stringify(jsonObj, null, 2);
 
-    showPreview(state.charData, sanitizedOptions, chatPalette, isInitial);
+    showPreview(appState.charData, sanitizedOptions, chatPalette, isInitial);
 
     // 裏のtextareaにも値を入れておく
     const cpTextarea = document.getElementById('preview-chatpalette');
     if (cpTextarea) cpTextarea.value = chatPalette;
 
     if (redrawBuilder) {
-      renderPaletteBuilder(state.charData, sanitizedOptions, rebuildOutput);
+      renderPaletteBuilder(appState.charData, sanitizedOptions, rebuildOutput);
     }
   } catch (e) {
     console.error('[main] Rebuild error:', e);
@@ -223,9 +164,7 @@ async function handleConvert() {
   // エラーと出力をクリア
   showError(null);
   hidePreview();
-  state.currentJsonStr = '';
-  state.characterName = '';
-  state.charData = null;
+  appState.reset();
 
   try {
     // 1. 入力バリデーション＆自動判別
@@ -275,10 +214,8 @@ async function handleConvert() {
       }
     }
 
-
-
-    state.characterName = charData.name || '名無し';
-    state.charData = charData;
+    appState.characterName = charData.name || '名無し';
+    appState.charData = charData;
 
     // JSONで色が指定されていた場合、カラーピッカーに反映
     if (charData.originalColor && validation.type === 'json') {
@@ -310,11 +247,11 @@ async function handleConvert() {
  * JSONをクリップボードにコピーする
  */
 async function handleCopy() {
-  if (!state.currentJsonStr) return;
+  if (!appState.currentJsonStr) return;
 
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(state.currentJsonStr);
+      await navigator.clipboard.writeText(appState.currentJsonStr);
       showToast('クリップボードにコピーしました！', 'success');
     } else {
       throw new Error('Clipboard API not available');
@@ -503,12 +440,6 @@ function setupRebuildListeners() {
   });
 }
 
-const createRemoveBtn = () => {
-  return `<button type="button" class="ccfolia-btn-icon ccfolia-btn-icon--remove" title="削除">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-  </button>`;
-};
-
 const bindRemoveAndRebuild = (container) => {
   const removeBtn = container.querySelector('.ccfolia-btn-icon--remove');
   if (removeBtn) {
@@ -586,7 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // プリセットUIのセットアップ
   setupPresetUI({
     onApply: () => {
-      if (state.charData) {
+      if (appState.charData) {
         rebuildOutput(true, false);
       } else {
         const rawOptions = collectOptions();
@@ -606,9 +537,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 初回のチャットパレットビルダー描画
-  const initialOptions = sanitizeOptions(collectOptions());
-  renderPaletteBuilder(null, initialOptions, rebuildOutput);
+  // 初回ロード用キャラクターデータ（取得技能0件）の初期化とチャットパレット・JSON描画
+  appState.charData = createInitialCharacterData();
+  appState.characterName = appState.charData.name;
+  rebuildOutput(true, false);
 
   // 変換ボタンイベント
   const btnConvert = document.getElementById('btn-convert');
