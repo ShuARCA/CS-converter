@@ -146,7 +146,7 @@ export function generateInitialSkillsLines(charData, options) {
   }
 
   const initialSkills = charData.skills.filter(sk =>
-    !sk.isAcquired && sk.value > 0 && !acquiredSkillNames.has(sk.name)
+    !sk.isAcquired && (sk.value > 0 || sk.name === '回避' || sk.name.startsWith('母国語')) && !acquiredSkillNames.has(sk.name)
   );
 
   if (initialSkills.length > 0) {

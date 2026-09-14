@@ -16,8 +16,12 @@ export function showLoading(show) {
   if (overlay) {
     if (show) {
       overlay.classList.add('visible');
+      overlay.setAttribute('aria-busy', 'true');
+      overlay.setAttribute('aria-hidden', 'false');
     } else {
       overlay.classList.remove('visible');
+      overlay.setAttribute('aria-busy', 'false');
+      overlay.setAttribute('aria-hidden', 'true');
     }
   }
 
@@ -160,6 +164,8 @@ export function showToast(message, type = 'success') {
   const container = document.getElementById('toast-container') || document.body;
   const toast = document.createElement('div');
   toast.className = `toast toast--${type}`;
+  toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
   toast.textContent = message;
 
   container.appendChild(toast);
@@ -190,14 +196,3 @@ function setValue(id, val) {
   }
 }
 
-/**
- * チェックボックスのチェック状態を設定するヘルパー関数
- * @param {string} id - 要素ID
- * @param {boolean} checked - チェック状態
- */
-function setCheckbox(id, checked) {
-  const el = document.getElementById(id);
-  if (el && el.type === 'checkbox') {
-    el.checked = !!checked;
-  }
-}

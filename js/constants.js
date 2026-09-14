@@ -59,6 +59,7 @@ export const SKILLS = [
   { name: '説得', initial: 15, category: 'negotiate', damage: null, normNames: ['説得'] },
   { name: '値切り', initial: 5, category: 'negotiate', damage: null, normNames: ['値切り'] },
   { name: '母国語()', initial: 'EDU*5', category: 'negotiate', damage: null, normNames: ['母国語'] },
+  { name: 'ほかの言語()', initial: 1, category: 'negotiate', damage: null, normNames: ['ほかの言語', '他の言語', '外国語'] },
   // ── 知識技能 ──
   { name: '医学', initial: 5, category: 'knowledge', damage: null, normNames: ['医学'] },
   { name: 'オカルト', initial: 5, category: 'knowledge', damage: null, normNames: ['オカルト'] },
@@ -107,6 +108,9 @@ export const SKILL_NAME_NORMALIZE_MAP = {
   '操縦': '操縦()',
   '芸術': '芸術()',
   '母国語': '母国語()',
+  'ほかの言語': 'ほかの言語()',
+  '他の言語': 'ほかの言語()',
+  '外国語': 'ほかの言語()',
   '錠前': '鍵開け',
 };
 

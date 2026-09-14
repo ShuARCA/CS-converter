@@ -215,7 +215,7 @@ export function buildSkillEntries(parsedSkills, stats) {
           value: parsed.value,
           initial,
           category: skillDef.category,
-          isAcquired: parsed.value > initial,
+          isAcquired: parsed.value !== initial,
         });
         matched = true;
       }
@@ -233,7 +233,7 @@ export function buildSkillEntries(parsedSkills, stats) {
               value: parsed.value,
               initial,
               category: skillDef.category,
-              isAcquired: parsed.value > initial,
+              isAcquired: parsed.value !== initial,
             });
             matched = true;
           }
@@ -267,26 +267,52 @@ export function buildSkillEntries(parsedSkills, stats) {
           value: parsed.value,
           initial,
           category,
-          isAcquired: parsed.value > initial || parsed.value > 0,
+          isAcquired: parsed.value !== initial,
         });
       }
     }
   }
 
-  // 3. カテゴリ未指定、または未知のカテゴリのカスタム技能（末尾に追加）
-  for (const [key, parsed] of parsedSkills.entries()) {
-    if (handledKeys.has(key)) continue;
+  // 3. カテゴリ未指定、または未知のカテゴリのカスタム技能
+  // 元の入力順（parsedSkillsのキー順）を反映し、直前に出現した技能の直後に挿入する
+  const rawOrder = Array.from(parsedSkills.keys());
+  const unhandledKeys = rawOrder.filter(key => !handledKeys.has(key));
 
+  for (const key of unhandledKeys) {
+    const parsed = parsedSkills.get(key);
     const initial = 0;
     const cat = parsed.category || 'other';
-    resultSkills.push({
+    const entry = {
       name: key,
       displayName: parsed.displayName || key,
       value: parsed.value,
       initial,
       category: cat,
-      isAcquired: parsed.value > initial || parsed.value > 0,
-    });
+      isAcquired: parsed.value !== initial,
+    };
+
+    // rawOrder 上で、このカスタム技能より前に現れた直近の配置済み技能を探す
+    const keyIdx = rawOrder.indexOf(key);
+    let prevPlacedName = null;
+    for (let i = keyIdx - 1; i >= 0; i--) {
+      const candidate = rawOrder[i];
+      if (handledKeys.has(candidate)) {
+        prevPlacedName = candidate;
+        break;
+      }
+    }
+
+    if (prevPlacedName) {
+      const insertIdx = resultSkills.findIndex(s => s.name === prevPlacedName || s.displayName === prevPlacedName);
+      if (insertIdx !== -1) {
+        resultSkills.splice(insertIdx + 1, 0, entry);
+      } else {
+        resultSkills.push(entry);
+      }
+    } else {
+      resultSkills.push(entry);
+    }
+    handledKeys.add(key);
   }
 
   return resultSkills;
